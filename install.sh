@@ -2,6 +2,15 @@
 # =============================================================================
 # ZAP Reporter - Installation Script
 # ติดตั้งร่วมกับ OpenVAS (Greenbone Community Edition)
+#
+# วิธีติดตั้ง (รันบน OpenVAS machine):
+#
+#   sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/jacom/zap-reporter/main/install.sh)"
+#
+# หรือดาวน์โหลดก่อนแล้วรัน:
+#
+#   curl -fsSL https://raw.githubusercontent.com/jacom/zap-reporter/main/install.sh -o install.sh
+#   sudo bash install.sh
 # =============================================================================
 
 set -euo pipefail
