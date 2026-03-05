@@ -1,0 +1,292 @@
+{% load thai_date %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<style>
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 300; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Light.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 400; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Regular.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 600; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-SemiBold.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 700; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Bold.ttf') format('truetype'); }
+
+    @page {
+        size: A4;
+        margin: 2cm 1.5cm;
+        @bottom-center {
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 8pt;
+            color: #888;
+        }
+        @top-right {
+            content: "OWASP Top 10:2025 Coverage Report";
+            font-size: 8pt;
+            color: #888;
+        }
+    }
+
+    body {
+        font-family: 'Sarabun', sans-serif;
+        font-size: 10pt;
+        color: #1a1a2e;
+        line-height: 1.5;
+    }
+
+    .page-break { page-break-before: always; }
+
+    /* Cover */
+    .cover {
+        text-align: center;
+        padding-top: 80px;
+        page-break-after: always;
+    }
+    .cover h1 { font-size: 24pt; color: #16213e; margin-bottom: 6px; }
+    .cover h2 { font-size: 16pt; color: #0f766e; margin-top: 0; }
+    .cover .line { width: 200px; height: 3px; background: linear-gradient(90deg, #0d9488, #22d3ee); margin: 20px auto; }
+    .cover .meta { margin-top: 30px; font-size: 11pt; color: #555; }
+    .cover .meta p { margin: 4px 0; }
+
+    /* Section titles */
+    .section-title {
+        color: #16213e;
+        border-bottom: 3px solid #0d9488;
+        padding-bottom: 6px;
+        margin-top: 30px;
+        font-size: 14pt;
+    }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 9pt; }
+    th { background: #142739; color: #fff; padding: 8px; text-align: left; }
+    td { padding: 6px 8px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+    tr:nth-child(even) td { background: #f9fafb; }
+
+    /* Status badges */
+    .badge {
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 8pt;
+        color: #fff;
+        display: inline-block;
+    }
+    .badge-online { background: #0d9488; }
+    .badge-offline { background: #dc3545; }
+    .badge-covered { background: #0d9488; }
+    .badge-gap { background: #dc3545; }
+
+    /* Chart container */
+    .chart-container { text-align: center; margin: 16px 0; }
+    .chart-container img { max-width: 100%; }
+
+    /* Summary boxes */
+    .summary-grid { display: flex; gap: 10px; margin: 16px 0; }
+    .summary-box {
+        flex: 1;
+        text-align: center;
+        padding: 12px 8px;
+        border-radius: 8px;
+        color: #fff;
+    }
+    .summary-box .count { font-size: 22pt; font-weight: 700; }
+    .summary-box .label { font-size: 9pt; text-transform: uppercase; }
+    .bg-covered { background: #0d9488; }
+    .bg-gap { background: #dc3545; }
+    .bg-tools { background: #3b82f6; }
+
+    /* Cover org info */
+    .cover-logo { max-height: 100px; margin-bottom: 15px; }
+    .cover-org-name { font-size: 14pt; color: #1a1a2e; font-weight: 600; margin-bottom: 5px; }
+    .cover-doc-info { font-size: 10pt; color: #555; margin-top: 30px; }
+    .cover-doc-info p { margin: 3px 0; }
+    .cover-signers { margin-top: 230px; font-size: 10pt; color: #444; }
+    .cover-signers .signer-block { display: inline-block; width: 45%; text-align: center; vertical-align: top; }
+    .cover-signers .signer-line { border-top: 1px solid #333; width: 180px; margin: 40px auto 4px; }
+
+    /* Running header */
+    .running-header {
+        position: running(header);
+        font-size: 8pt;
+        color: #888;
+        text-align: center;
+    }
+    .running-header img {
+        height: 20px;
+        vertical-align: middle;
+        margin-right: 6px;
+    }
+</style>
+</head>
+<body>
+
+<!-- RUNNING HEADER (appears on every page except first) -->
+<div class="running-header">
+    {% if org_logo_b64 %}<img src="{{ org_logo_b64 }}" alt="">{% endif %}
+    {% if org.name_th %}{{ org.name_th }}{% endif %}
+    {% if org.name_en %} | {{ org.name_en }}{% endif %}
+</div>
+
+<!-- COVER PAGE -->
+<div class="cover">
+    {% if org_logo_b64 %}
+    <img src="{{ org_logo_b64 }}" alt="Logo" class="cover-logo">
+    {% endif %}
+
+    {% if org.name_th %}
+    <div class="cover-org-name">{{ org.name_th }}</div>
+    {% endif %}
+    {% if org.name_en %}
+    <div style="font-size: 12pt; color: #16213e; margin-bottom: 20px;">{{ org.name_en }}</div>
+    {% endif %}
+
+    <h1>OWASP Top 10:2025 Coverage Report</h1>
+    <h2>รายงานความครอบคลุม OWASP Top 10:2025</h2>
+    <div class="line"></div>
+
+    <div class="meta">
+        {% if doc_number %}<p>เลขที่เอกสาร: {{ doc_number }}</p>{% endif %}
+        <p>วันที่ออกรายงาน: {% thainow "j F Y" %}</p>
+        <p>Standard: OWASP Top 10:2025</p>
+    </div>
+
+    {% if org.preparer_name or org.approver_name %}
+    <div class="cover-signers">
+        {% if org.preparer_name %}
+        <div class="signer-block">
+            <div class="signer-line"></div>
+            <div><strong>{{ org.preparer_name }}</strong></div>
+            <div>{{ org.preparer_title }}</div>
+            <div style="font-size: 9pt; color: #888;">ผู้จัดทำรายงาน</div>
+        </div>
+        {% endif %}
+        {% if org.approver_name %}
+        <div class="signer-block">
+            <div class="signer-line"></div>
+            <div><strong>{{ org.approver_name }}</strong></div>
+            <div>{{ org.approver_title }}</div>
+            <div style="font-size: 9pt; color: #888;">ผู้รับรองรายงาน</div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- TOOL STATUS -->
+<h2 class="section-title">Tool Status / สถานะเครื่องมือ</h2>
+
+<p>สถานะการเชื่อมต่อเครื่องมือตรวจสอบช่องโหว่ทั้งหมดในระบบ:</p>
+
+<div class="summary-grid">
+    {% with online_count=0 offline_count=0 %}
+    <div class="summary-box bg-tools">
+        <div class="count">{{ tools_status|length }}</div>
+        <div class="label">Total Tools</div>
+    </div>
+    {% endwith %}
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Tool</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for tool, is_online in tools_status.items %}
+        <tr>
+            <td><strong>{{ tool }}</strong></td>
+            <td>
+                {% if is_online %}
+                <span class="badge badge-online">Online</span>
+                {% else %}
+                <span class="badge badge-offline">Offline</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- COVERAGE MATRIX -->
+<div class="page-break"></div>
+<h2 class="section-title">Coverage Matrix / ตารางความครอบคลุม</h2>
+
+<p>แสดงว่าแต่ละหมวดหมู่ OWASP Top 10:2025 มีเครื่องมือตรวจสอบรองรับหรือไม่:</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Code</th>
+            <th>Category</th>
+            <th>ชื่อ (ไทย)</th>
+            <th>Status</th>
+            <th>Active Tools</th>
+            <th>Missing Tools</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for code, data in coverage.items %}
+        <tr>
+            <td><strong>{{ data.info.code }}</strong></td>
+            <td>{{ data.info.name }}</td>
+            <td>{{ data.info.name_th }}</td>
+            <td>
+                {% if data.covered %}
+                <span class="badge badge-covered">Covered</span>
+                {% else %}
+                <span class="badge badge-gap">Gap</span>
+                {% endif %}
+            </td>
+            <td>{{ data.active_tools|join:", " }}</td>
+            <td>{{ data.missing_tools|join:", " }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- FINDINGS SUMMARY -->
+<div class="page-break"></div>
+<h2 class="section-title">Findings Summary / สรุปผลการตรวจสอบ</h2>
+
+<p>จำนวนช่องโหว่ที่พบในแต่ละหมวดหมู่ OWASP Top 10:2025 จากการสแกนทั้งหมด:</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Code</th>
+            <th>Category</th>
+            <th>Critical</th>
+            <th>High</th>
+            <th>Medium</th>
+            <th>Low</th>
+            <th>Info</th>
+            <th>Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for code, data in owasp_summary.items %}
+        <tr>
+            <td><strong>{{ data.info.code }}</strong></td>
+            <td>{{ data.info.name }}</td>
+            <td>{{ data.critical }}</td>
+            <td>{{ data.high }}</td>
+            <td>{{ data.medium }}</td>
+            <td>{{ data.low }}</td>
+            <td>{{ data.informational }}</td>
+            <td><strong>{{ data.total }}</strong></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- BAR CHART -->
+{% if bar_chart %}
+<div class="page-break"></div>
+<h2 class="section-title">Findings Distribution / การกระจายของช่องโหว่</h2>
+<div class="chart-container">
+    <img src="data:image/png;base64,{{ bar_chart }}" alt="OWASP Findings Distribution">
+</div>
+{% endif %}
+
+</body>
+</html>

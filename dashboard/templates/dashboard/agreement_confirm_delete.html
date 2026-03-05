@@ -1,0 +1,34 @@
+{% extends "dashboard/base.html" %}
+{% block title %}ยืนยันการลบเอกสาร — VA Platform{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger text-white fw-bold">
+                <i class="bi bi-trash me-1"></i>ยืนยันการลบเอกสาร
+            </div>
+            <div class="card-body text-center py-4">
+                <i class="bi bi-exclamation-triangle fs-1 text-danger mb-3 d-block"></i>
+                <h5>ต้องการลบเอกสารนี้หรือไม่?</h5>
+                <p class="text-muted">
+                    <strong>{{ agreement.document_number|default:"(ไม่มีเลขที่)" }}</strong> —
+                    {{ agreement.client_name_th }}
+                </p>
+                <p class="text-danger small">การลบจะไม่สามารถเรียกคืนได้</p>
+                <div class="d-flex justify-content-center gap-3 mt-3">
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger px-4">
+                            <i class="bi bi-trash me-1"></i>ยืนยันลบ
+                        </button>
+                    </form>
+                    <a href="{% url 'dashboard-agreement-list' %}" class="btn btn-outline-secondary px-4">
+                        ยกเลิก
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

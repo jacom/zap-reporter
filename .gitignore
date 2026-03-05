@@ -1,0 +1,26 @@
+# Environment & Secrets
+.env
+.env.*
+
+# Claude
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+*.egg-info/
+
+# Django
+staticfiles/
+media/
+*.log
+
+# Backup files
+reports/agreement_template_backup_*.docx
+reports/agreement_template_noto_backup.docx
+
+# Install scripts
+install.sh
+git-setup.sh

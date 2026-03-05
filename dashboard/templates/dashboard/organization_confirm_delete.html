@@ -1,0 +1,27 @@
+{% extends "dashboard/base.html" %}
+{% block title %}ลบหน่วยงาน — VA Platform{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-danger shadow-sm">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>ยืนยันการลบหน่วยงาน</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-1">ต้องการลบหน่วยงาน <strong>{{ org.name_th }}</strong> ใช่หรือไม่?</p>
+                <p class="text-muted small"><i class="bi bi-exclamation-circle me-1"></i>การลบไม่สามารถกู้คืนได้</p>
+                <div class="d-flex gap-2 mt-3">
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash-fill me-1"></i>ลบถาวร
+                        </button>
+                    </form>
+                    <a href="{% url 'dashboard-organization' %}" class="btn btn-outline-secondary">ยกเลิก</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

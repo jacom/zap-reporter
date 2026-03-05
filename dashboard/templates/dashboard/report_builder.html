@@ -1,0 +1,395 @@
+{% extends "dashboard/base.html" %}
+{% load thai_date %}
+{% block title %}Generate Report — VA Platform{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard-index' %}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Generate Report</li>
+    </ol>
+</nav>
+
+<div class="row mb-3">
+    <div class="col-lg-8">
+        <h4 class="mb-1"><i class="bi bi-file-earmark-text"></i> Generate OWASP Vulnerability Report</h4>
+        <p class="text-muted mb-0">เลือกโรงพยาบาล / target แล้วเลือก scan ที่ต้องการรวมในรายงาน</p>
+    </div>
+    <div class="col-lg-4 text-end">
+        <a href="{% url 'dashboard-scan-new' %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-plus-circle"></i> Start New Scan
+        </a>
+    </div>
+</div>
+
+<!-- Target Filter -->
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-2">
+        <div class="row align-items-center g-2">
+            <div class="col-auto">
+                <label class="form-label mb-0 fw-semibold">
+                    <i class="bi bi-building-hospital"></i> โรงพยาบาล / Target:
+                </label>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select form-select-sm" id="targetFilter">
+                    <option value="">— แสดงทั้งหมด —</option>
+                    {% for t in targets %}
+                    <option value="{{ t.id }}" {% if selected_target == t.id|stringformat:"s" %}selected{% endif %}>
+                        {{ t.name }}{% if t.scan_count %} ({{ t.scan_count }} scans){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="selectAllBtn">
+                    <i class="bi bi-check2-all"></i> Select All Filtered
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="clearBtn">
+                    <i class="bi bi-x-lg"></i> Clear
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm" id="deleteBtn" disabled>
+                    <i class="bi bi-trash3"></i> ลบที่เลือก
+                    <span class="badge bg-danger ms-1" id="deleteBadge" style="display:none"></span>
+                </button>
+            </div>
+            <div class="col-auto ms-auto">
+                <span class="text-muted small" id="selectedCount">0 scans selected</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scans Table -->
+<form method="post" action="{% url 'reports-combined-pdf' %}" id="reportForm">
+    {% csrf_token %}
+    <div class="card shadow-sm mb-3">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle" id="scansTable">
+                <thead>
+                    <tr>
+                        <th style="width:40px">
+                            <input type="checkbox" id="selectAllCheck" title="Select/Deselect all visible">
+                        </th>
+                        <th>Target / โรงพยาบาล</th>
+                        <th>Tool</th>
+                        <th>วันที่</th>
+                        <th class="text-center">Critical</th>
+                        <th class="text-center">High</th>
+                        <th class="text-center">Medium</th>
+                        <th class="text-center">Low</th>
+                        <th class="text-center">Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for scan in scans %}
+                    <tr class="scan-row {% if scan.status != 'completed' %}opacity-50{% endif %}"
+                        data-target="{{ scan.target.id }}"
+                        data-status="{{ scan.status }}">
+                        <td>
+                            <input type="checkbox" name="scan_ids" value="{{ scan.id }}"
+                                   class="scan-check"
+                                   {% if scan.status != 'completed' %}disabled title="เฉพาะ scan ที่ completed เท่านั้น"{% endif %}>
+                        </td>
+                        <td>
+                            <strong>{{ scan.target.name|truncatechars:40 }}</strong>
+                            <br><small class="text-muted">{{ scan.target.url|truncatechars:55 }}</small>
+                        </td>
+                        <td>
+                            <span class="badge {{ scan.tool|tool_badge_class }}">
+                                <i class="bi {{ scan.tool|tool_badge_icon }}"></i>
+                                {{ scan.get_tool_display }}
+                            </span>
+                            {% if scan.ai_count %}
+                            <span title="AI Analyzed ({{ scan.ai_count }} findings)"
+                                  style="color:#a78bfa; font-size:.85rem; margin-left:4px;">
+                                <i class="bi bi-stars"></i>
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="white-space:nowrap">{{ scan.started_at|thaidate:"j M Y" }}<br>
+                            <small class="text-muted">{{ scan.started_at|thaidate:"H:i" }}</small></td>
+                        <td class="text-center">
+                            {% if scan.critical_count %}
+                            <span class="badge" style="background:#6f1d1b">{{ scan.critical_count }}</span>
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if scan.high_count %}
+                            <span class="badge severity-badge-high">{{ scan.high_count }}</span>
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if scan.medium_count %}
+                            <span class="badge severity-badge-medium">{{ scan.medium_count }}</span>
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if scan.low_count %}
+                            <span class="badge severity-badge-low">{{ scan.low_count }}</span>
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if scan.status == 'completed' %}
+                            <span class="badge bg-success">Completed</span>
+                            {% elif scan.status == 'running' %}
+                            <span class="badge bg-primary"><span class="spinner-border spinner-border-sm"></span></span>
+                            {% elif scan.status == 'failed' %}
+                            <span class="badge bg-danger">Failed</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'dashboard-scan-detail' scan.id %}"
+                               class="btn btn-outline-secondary btn-sm py-0" title="View detail">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="10" class="text-center text-muted py-4">ยังไม่มี scan</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Report Options + Submit -->
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="row align-items-center g-3">
+                <div class="col-md-3">
+                    <label class="form-label mb-1 fw-semibold">Report Format</label>
+                    <select class="form-select form-select-sm" name="report_format">
+                        <option value="pdf">PDF (OWASP Report)</option>
+                        <option value="excel">Excel (.xlsx)</option>
+                    </select>
+                </div>
+                {% if organizations %}
+                <div class="col-md-3">
+                    <label class="form-label mb-1 fw-semibold">หน่วยงาน</label>
+                    <select class="form-select form-select-sm" name="org_id">
+                        {% for org in organizations %}
+                        <option value="{{ org.pk }}" {% if org.is_default %}selected{% endif %}>
+                            {% if org.is_default %}★ {% endif %}{{ org.name_th }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="col-md-{% if organizations %}3{% else %}4{% endif %}">
+                    <label class="form-label mb-1 fw-semibold">ชื่อรายงาน (optional)</label>
+                    <input type="text" class="form-control form-control-sm" name="report_title"
+                           placeholder="เช่น รายงาน VA โรงพยาบาลเซนต์หลุยส์ Q1/2568">
+                </div>
+                <div class="col-md-5 d-flex align-items-end justify-content-end gap-2">
+                    <div id="multiTargetWarning" class="alert alert-warning py-1 px-2 mb-0 small" style="display:none!important">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        เลือก scan จากหลาย target — รายงานจะรวมทุก target
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="generateBtn" disabled>
+                        <i class="bi bi-file-earmark-arrow-down"></i> Generate Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Hidden delete form (outside modal, submitted by JS) -->
+<form method="post" action="{% url 'dashboard-scans-bulk-delete' %}" id="deleteForm" style="display:none">
+    {% csrf_token %}
+    <input type="hidden" name="next" id="deleteNext">
+    <!-- scan_ids appended dynamically by JS -->
+</form>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="bi bi-exclamation-triangle-fill"></i> ยืนยันการลบ
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1">คุณต้องการ<strong class="text-danger">ลบ</strong>
+                    <strong id="deleteCountText"></strong> ที่เลือกหรือไม่?</p>
+                <p class="text-muted small mb-0">
+                    <i class="bi bi-exclamation-circle"></i>
+                    การลบจะลบ scan และ findings ทั้งหมดที่เกี่ยวข้องอย่างถาวร ไม่สามารถกู้คืนได้
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="bi bi-trash3-fill"></i> ลบถาวร
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var targetFilter = document.getElementById('targetFilter');
+    var selectAllCheck = document.getElementById('selectAllCheck');
+    var selectAllBtn = document.getElementById('selectAllBtn');
+    var clearBtn = document.getElementById('clearBtn');
+    var deleteBtn = document.getElementById('deleteBtn');
+    var deleteBadge = document.getElementById('deleteBadge');
+    var deleteCountText = document.getElementById('deleteCountText');
+    var deleteForm = document.getElementById('deleteForm');
+    var deleteNext = document.getElementById('deleteNext');
+    var confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+    // Move modal + form to <body> directly.
+    // .fade-in animation on <main> uses transform which makes it a containing block
+    // for position:fixed — Bootstrap modals break when inside a transformed ancestor.
+    document.body.appendChild(document.getElementById('deleteModal'));
+    document.body.appendChild(deleteForm);
+    var selectedCount = document.getElementById('selectedCount');
+    var generateBtn = document.getElementById('generateBtn');
+    var multiWarn = document.getElementById('multiTargetWarning');
+    var rows = document.querySelectorAll('.scan-row');
+    var checks = document.querySelectorAll('.scan-check');
+
+    function getVisibleChecks() {
+        return Array.from(checks).filter(function(cb) {
+            return !cb.disabled && cb.closest('tr').style.display !== 'none';
+        });
+    }
+
+    function updateUI() {
+        var checked = Array.from(checks).filter(function(cb) { return cb.checked; });
+        var count = checked.length;
+        selectedCount.textContent = count + ' scan' + (count !== 1 ? 's' : '') + ' selected';
+        generateBtn.disabled = count === 0;
+        deleteBtn.disabled = count === 0;
+        if (count > 0) {
+            deleteBadge.textContent = count;
+            deleteBadge.style.display = '';
+        } else {
+            deleteBadge.style.display = 'none';
+        }
+
+        // Warn if multiple targets selected
+        var targets = new Set(checked.map(function(cb) {
+            return cb.closest('tr').dataset.target;
+        }));
+        if (targets.size > 1) {
+            multiWarn.style.display = '';
+            multiWarn.style.setProperty('display', 'block', 'important');
+        } else {
+            multiWarn.style.setProperty('display', 'none', 'important');
+        }
+
+        // Sync selectAll state
+        var visible = getVisibleChecks();
+        selectAllCheck.indeterminate = false;
+        if (visible.length === 0) {
+            selectAllCheck.checked = false;
+        } else if (visible.every(function(cb) { return cb.checked; })) {
+            selectAllCheck.checked = true;
+        } else if (visible.some(function(cb) { return cb.checked; })) {
+            selectAllCheck.indeterminate = true;
+        } else {
+            selectAllCheck.checked = false;
+        }
+    }
+
+    function filterTable() {
+        var tid = targetFilter.value;
+        rows.forEach(function(row) {
+            row.style.display = (!tid || row.dataset.target === tid) ? '' : 'none';
+        });
+        updateUI();
+    }
+
+    targetFilter.addEventListener('change', filterTable);
+
+    selectAllCheck.addEventListener('change', function() {
+        getVisibleChecks().forEach(function(cb) { cb.checked = selectAllCheck.checked; });
+        updateUI();
+    });
+
+    selectAllBtn.addEventListener('click', function() {
+        getVisibleChecks().forEach(function(cb) { cb.checked = true; });
+        updateUI();
+    });
+
+    clearBtn.addEventListener('click', function() {
+        checks.forEach(function(cb) { cb.checked = false; });
+        updateUI();
+    });
+
+    checks.forEach(function(cb) { cb.addEventListener('change', updateUI); });
+
+    // Apply filter from URL param if any
+    var params = new URLSearchParams(location.search);
+    var t = params.get('target');
+    if (t) { targetFilter.value = t; filterTable(); }
+
+    updateUI();
+
+    // Open delete modal via JS (avoids Bootstrap ignoring disabled-button data-bs-toggle)
+    var deleteModalEl = document.getElementById('deleteModal');
+    var deleteModal = new bootstrap.Modal(deleteModalEl);
+    deleteBtn.addEventListener('click', function() {
+        // Populate form before showing
+        var checked = Array.from(checks).filter(function(cb) { return cb.checked; });
+        var count = checked.length;
+        deleteCountText.textContent = count + ' scan' + (count !== 1 ? 's' : '');
+        deleteForm.querySelectorAll('input[name="scan_ids"]').forEach(function(el) { el.remove(); });
+        checked.forEach(function(cb) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'scan_ids';
+            inp.value = cb.value;
+            deleteForm.appendChild(inp);
+        });
+        var tid = targetFilter.value;
+        deleteNext.value = tid ? '{% url "dashboard-report-builder" %}?target=' + tid : '';
+        deleteModal.show();
+    });
+
+    // (keep show.bs.modal as fallback in case triggered externally)
+    deleteModalEl.addEventListener('show.bs.modal', function() {
+        var checked = Array.from(checks).filter(function(cb) { return cb.checked; });
+        var count = checked.length;
+        deleteCountText.textContent = count + ' scan' + (count !== 1 ? 's' : '');
+        // Remove old scan_ids from hidden form
+        deleteForm.querySelectorAll('input[name="scan_ids"]').forEach(function(el) { el.remove(); });
+        // Add one hidden input per selected scan to the hidden form
+        checked.forEach(function(cb) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'scan_ids';
+            inp.value = cb.value;
+            deleteForm.appendChild(inp);
+        });
+        // Preserve current target filter in return URL
+        var tid = targetFilter.value;
+        deleteNext.value = tid ? '{% url "dashboard-report-builder" %}?target=' + tid : '';
+    });
+
+    // Confirm delete button submits the hidden form
+    confirmDeleteBtn.addEventListener('click', function() {
+        confirmDeleteBtn.disabled = true;
+        confirmDeleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> กำลังลบ...';
+        deleteForm.submit();
+    });
+
+    // Show loading on submit
+    document.getElementById('reportForm').addEventListener('submit', function() {
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
+    });
+})();
+</script>
+{% endblock %}

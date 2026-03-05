@@ -1,0 +1,956 @@
+{% load thai_date %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<style>
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 300; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Light.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 400; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Regular.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: italic; font-weight: 400; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Italic.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 600; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-SemiBold.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 700; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Bold.ttf') format('truetype'); }
+
+    @page {
+        size: A4;
+        margin: 2.5cm 1.5cm 2cm;
+        @bottom-center {
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 8pt;
+            color: #888;
+        }
+        @top-center {
+            content: element(runningHeader);
+        }
+    }
+    @page :first {
+        @top-center { content: none; }
+    }
+
+    body {
+        font-family: 'Sarabun', sans-serif;
+        font-size: 10pt;
+        color: #1a1a2e;
+        line-height: 1.5;
+    }
+
+    .page-break { page-break-before: always; }
+
+    /* Cover */
+    .cover {
+        text-align: center;
+        padding-top: 60px;
+        page-break-after: always;
+    }
+    .cover h1 { font-size: 22pt; color: #16213e; margin-bottom: 6px; }
+    .cover h2 { font-size: 15pt; color: #0f766e; margin-top: 0; }
+    .cover .line { width: 200px; height: 3px; background: linear-gradient(90deg, #0d9488, #22d3ee); margin: 16px auto; }
+    .cover .meta { margin-top: 24px; font-size: 11pt; color: #555; }
+    .cover .meta p { margin: 4px 0; }
+
+    /* Tool badges on cover */
+    .tool-badges { margin: 16px 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+    .tool-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 9pt;
+        font-weight: 600;
+        background: #142739;
+        color: #fff;
+    }
+
+    /* Section titles */
+    .section-title {
+        color: #16213e;
+        border-bottom: 3px solid #0d9488;
+        padding-bottom: 6px;
+        margin-top: 30px;
+        font-size: 14pt;
+        page-break-after: avoid;
+    }
+
+    /* Summary boxes */
+    .summary-grid { display: flex; gap: 10px; margin: 16px 0; }
+    .summary-box {
+        flex: 1;
+        text-align: center;
+        padding: 12px 8px;
+        border-radius: 8px;
+        color: #fff;
+    }
+    .summary-box .count { font-size: 22pt; font-weight: 700; }
+    .summary-box .label { font-size: 9pt; text-transform: uppercase; }
+    .bg-critical { background: #6f1d1b; }
+    .bg-high { background: #dc3545; }
+    .bg-medium { background: #fd7e14; }
+    .bg-low { background: #0dcaf0; color: #04252b; }
+    .bg-info { background: #6c757d; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 9pt; }
+    th { background: #142739; color: #fff; padding: 8px; text-align: left; }
+    td { padding: 6px 8px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+    tr:nth-child(even) td { background: #f9fafb; }
+
+    /* Severity badges */
+    .sev { padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 8pt; color: #fff; }
+    .sev-critical { background: #6f1d1b; }
+    .sev-high { background: #dc3545; }
+    .sev-medium { background: #fd7e14; }
+    .sev-low { background: #0dcaf0; color: #04252b; }
+    .sev-info { background: #6c757d; }
+
+    /* Tool mini-badge inside findings */
+    .tool-tag {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 10px;
+        font-size: 7.5pt;
+        font-weight: 600;
+        background: #1e3a5f;
+        color: #7dd3fc;
+        margin-right: 3px;
+        vertical-align: middle;
+    }
+
+    /* Chart container */
+    .chart-container { text-align: center; margin: 16px 0; }
+    .chart-container img { max-width: 420px; }
+    .charts-row { display: flex; gap: 16px; align-items: flex-start; margin: 16px 0; }
+    .charts-row .chart-container { flex: 1; margin: 0; }
+    .charts-row .chart-container img { max-width: 100%; }
+
+    /* Finding blocks (legacy) */
+    .finding {
+        border: 1px solid #e0e0e0;
+        border-left: 4px solid #6f1d1b;
+        border-radius: 6px;
+        padding: 10px 14px;
+        margin: 10px 0;
+        page-break-inside: avoid;
+    }
+    .finding-high { border-left-color: #dc3545; }
+    .finding-medium { border-left-color: #fd7e14; }
+    .finding .name { font-weight: 700; font-size: 10pt; }
+    .finding .meta { font-size: 8pt; color: #666; margin: 4px 0; }
+    .finding .desc { font-size: 9pt; margin: 6px 0; }
+    .label-bold { font-weight: 600; }
+
+    .url-list {
+        margin: 4px 0 0 0;
+        padding-left: 20px;
+        font-size: 8pt;
+        color: #444;
+        word-break: break-all;
+        line-height: 1.6;
+    }
+    .url-list li { margin-bottom: 1px; }
+
+    /* ZAP-style finding table */
+    .zap-finding {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 9pt;
+        page-break-inside: avoid;
+    }
+    .zap-finding td {
+        border: 1px solid #ccc;
+        padding: 4px 8px;
+        vertical-align: top;
+    }
+    .zap-finding .zf-header {
+        font-weight: 700;
+        font-size: 10pt;
+        color: #fff;
+        padding: 5px 10px;
+    }
+    .zf-sev-critical { background: #6f1d1b; }
+    .zf-sev-high     { background: #dc3545; }
+    .zf-sev-medium   { background: #fd7e14; }
+    .zf-label {
+        width: 110px;
+        font-weight: 600;
+        color: #333;
+        background: #f5f5f5;
+        white-space: nowrap;
+    }
+    .zf-sublabel {
+        width: 110px;
+        font-weight: 400;
+        color: #555;
+        background: #fafafa;
+        padding-left: 20px !important;
+        white-space: nowrap;
+    }
+    .zf-url a  { color: #0d6efd; word-break: break-all; text-decoration: underline; }
+    .zf-ref a  { color: #0d6efd; word-break: break-all; text-decoration: underline; display: block; margin-bottom: 2px; }
+    .zf-cwe a, .zf-plugin a { color: #0d6efd; text-decoration: underline; }
+
+    /* Coverage matrix / Findings summary */
+    .status-found      { color: #dc3545; font-weight: 700; }
+    .status-clean      { color: #198754; font-weight: 700; }
+    .status-not-tested { color: #aaa; }
+    .bar-track { background: #e9ecef; border-radius: 4px; height: 10px; width: 100%; }
+    .bar-fill  { height: 10px; border-radius: 4px; }
+
+    .ai-box {
+        margin-top: 8px;
+        border: 1px solid #c8d8f0;
+        border-left: 3px solid #4488ff;
+        border-radius: 5px;
+        overflow: hidden;
+        font-size: 8.5pt;
+    }
+    .ai-box-header {
+        background: #e8f0ff;
+        padding: 3px 10px;
+        font-weight: 700;
+        color: #2255cc;
+        font-size: 8pt;
+    }
+    .ai-box-body { padding: 6px 10px; background: #f7faff; }
+    .ai-section-label {
+        font-weight: 700;
+        color: #2255cc;
+        font-size: 7.5pt;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-top: 5px;
+        margin-bottom: 2px;
+    }
+    .ai-section-text { color: #1a2a4a; line-height: 1.5; margin: 0 0 4px 0; white-space: pre-line; }
+
+    /* CVE tags inside findings */
+    .cve-tag {
+        display: inline-block;
+        background: #ede9ff;
+        color: #5b21b6;
+        border: 1px solid #c4b5fd;
+        border-radius: 3px;
+        font-size: 7.5pt;
+        padding: 1px 5px;
+        margin: 1px 2px 1px 0;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    a.cve-tag:hover { background: #ddd6fe; }
+    a.cve-link {
+        color: #5b21b6;
+        font-size: 8pt;
+        text-decoration: none;
+        border-bottom: 1px dotted #a78bfa;
+    }
+    .cve-block { margin: 4px 0; font-size: 8.5pt; }
+
+    /* Exploit warning box */
+    .exploit-box {
+        margin-top: 6px;
+        border: 1px solid #ffcdd2;
+        border-left: 3px solid #dc3545;
+        border-radius: 5px;
+        overflow: hidden;
+        font-size: 8.5pt;
+    }
+    .exploit-kev-box { border-color: #ffb3b3; border-left-color: #8b0000; }
+    .exploit-box-header {
+        background: #fff5f5;
+        padding: 3px 10px;
+        font-weight: 700;
+        color: #c00000;
+        font-size: 8pt;
+    }
+    .exploit-kev-box .exploit-box-header { background: #ffe0e0; color: #6a0000; }
+    .exploit-box-body {
+        padding: 4px 10px;
+        background: #fffafa;
+        color: #3a0000;
+        font-size: 7.5pt;
+        word-break: break-all;
+    }
+
+    /* Org logo */
+    .org-logo { max-height: 70px; margin-bottom: 10px; }
+    .cover-signers { margin-top: 60px; font-size: 10pt; color: #444; }
+    .cover-signers .signer-block { display: inline-block; width: 45%; text-align: center; vertical-align: top; }
+    .cover-signers .signer-line { border-top: 1px solid #333; width: 180px; margin: 40px auto 4px; }
+    .cover-confidential {
+        margin-top: 28px;
+        padding: 10px 14px;
+        border: 1px solid #c8a415;
+        border-left: 4px solid #c8a415;
+        border-radius: 4px;
+        background: #fffbf0;
+        font-size: 8pt;
+        color: #5a4a00;
+        line-height: 1.7;
+        text-align: left;
+    }
+    .cover-confidential .conf-title {
+        font-weight: 700;
+        font-size: 9pt;
+        color: #7a5c00;
+        margin-bottom: 4px;
+    }
+    .running-header {
+        position: running(runningHeader);
+        font-size: 8pt;
+        color: #666;
+        text-align: right;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 3px;
+    }
+    .running-header img { height: 18px; vertical-align: middle; margin-right: 5px; }
+</style>
+</head>
+<body>
+
+<!-- RUNNING HEADER (every page except first) -->
+<div class="running-header">
+    {% if org_logo_b64 %}<img src="{{ org_logo_b64 }}" alt="">{% endif %}
+    {% if org.name_th %}{{ org.name_th }}{% endif %}
+    Penetration Testing Report
+</div>
+
+<!-- COVER PAGE -->
+<div class="cover">
+    {% if org_logo_b64 %}
+    <img class="org-logo" src="{{ org_logo_b64 }}" alt="Logo">
+    {% endif %}
+    <h1>Penetration Testing Report</h1>
+    <h2>รายงานผลการทดสอบเจาะระบบ</h2>
+    <div class="line"></div>
+
+    <p style="font-size: 15pt; color: #16213e; font-weight: 700; margin-top: 16px;">
+        {{ target_label }}
+    </p>
+
+    <!-- Tools used -->
+    <div class="tool-badges">
+        {% for scan in scans %}
+        <span class="tool-badge">{{ scan.get_tool_display }}{% if scan.tool_version %} {{ scan.tool_version }}{% endif %}</span>
+        {% endfor %}
+    </div>
+
+    <div class="meta">
+        {% if primary_target %}
+        <p>Target URL: {{ primary_target.url }}</p>
+        {% endif %}
+        <p>จำนวน Scan: {{ scans|length }} scan ({{ scans|length }} tool{% if scans|length != 1 %}s{% endif %})</p>
+        <p>Report Date: {% thainow "j F Y" %}</p>
+        <p>เลขที่เอกสาร: {{ doc_number }}</p>
+    </div>
+
+    {% if org.preparer_name or org.approver_name %}
+    <div class="cover-signers">
+        {% if org.preparer_name %}
+        <div class="signer-block">
+            <div class="signer-line"></div>
+            <div><strong>{{ org.preparer_name }}</strong></div>
+            <div>{{ org.preparer_title }}</div>
+            <div style="font-size: 9pt; color: #888;">ผู้จัดทำรายงาน</div>
+        </div>
+        {% endif %}
+        {% if org.approver_name %}
+        <div class="signer-block">
+            <div class="signer-line"></div>
+            <div><strong>{{ org.approver_name }}</strong></div>
+            <div>{{ org.approver_title }}</div>
+            <div style="font-size: 9pt; color: #888;">ผู้รับรองรายงาน</div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="cover-confidential">
+        <div class="conf-title">ข้อกำหนดสิทธิ์และความลับ (Confidentiality &amp; Copyright)</div>
+        สงวนลิขสิทธิ์ &copy; {% now "Y" %} {{ org.name_th }} กระทรวงสาธารณสุข
+        เนื้อหาในรายงานฉบับนี้ถือเป็นความลับสูงสุดของทางราชการ
+        ห้ามมิให้ผู้ใดทำการคัดลอก ทำซ้ำ ดัดแปลง หรือเผยแพร่ส่วนหนึ่งส่วนใดหรือทั้งหมดของเอกสารนี้
+        ไม่ว่าจะด้วยวิธีการทางอิเล็กทรอนิกส์หรือวิธีการอื่นใด รวมถึงการเก็บข้อมูลในระบบเรียกคืนข้อมูล
+        โดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษรจากหน่วยงานเจ้าของระบบและผู้จัดทำ
+    </div>
+</div>
+
+<!-- SCAN SUMMARY TABLE -->
+<h2 class="section-title">สรุป Scan ที่รวมในรายงาน</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Target / โรงพยาบาล</th>
+            <th>Tool</th>
+            <th>วันที่ Scan</th>
+            <th class="text-center">Critical</th>
+            <th class="text-center">High</th>
+            <th class="text-center">Medium</th>
+            <th class="text-center">Low</th>
+            <th class="text-center">Info</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for scan in scans %}
+        <tr>
+            <td>
+                <strong>{{ scan.target.name }}</strong><br>
+                <small style="color:#888; word-break:break-all;">{{ scan.target.url|truncatechars:60 }}</small>
+            </td>
+            <td><strong>{{ scan.get_tool_display }}</strong>{% if scan.tool_version %}<br><small style="color:#888;font-size:0.78em">{{ scan.tool_version }}</small>{% endif %}</td>
+            <td style="white-space:nowrap">{{ scan.started_at|thaidate:"j M Y H:i" }}</td>
+            <td style="text-align:center">
+                {% if scan.critical_count %}<strong style="color:#6f1d1b">{{ scan.critical_count }}</strong>{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center">
+                {% if scan.high_count %}<strong style="color:#dc3545">{{ scan.high_count }}</strong>{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center">
+                {% if scan.medium_count %}<strong style="color:#fd7e14">{{ scan.medium_count }}</strong>{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center">
+                {% if scan.low_count %}<strong style="color:#0d9488">{{ scan.low_count }}</strong>{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center">{{ scan.info_count|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- EXECUTIVE SUMMARY -->
+<h2 class="section-title">Executive Summary / บทสรุปผู้บริหาร</h2>
+
+<p>จากการตรวจสอบช่องโหว่ของ <strong>{{ target_label }}</strong>
+โดยใช้เครื่องมือ {{ scans|length }} ประเภท
+พบผลการตรวจสอบรวมดังนี้:</p>
+
+<div class="summary-grid">
+    {% if totals.critical %}
+    <div class="summary-box bg-critical">
+        <div class="count">{{ totals.critical }}</div>
+        <div class="label">Critical</div>
+    </div>
+    {% endif %}
+    <div class="summary-box bg-high">
+        <div class="count">{{ totals.high }}</div>
+        <div class="label">High</div>
+    </div>
+    <div class="summary-box bg-medium">
+        <div class="count">{{ totals.medium }}</div>
+        <div class="label">Medium</div>
+    </div>
+    <div class="summary-box bg-low">
+        <div class="count">{{ totals.low }}</div>
+        <div class="label">Low</div>
+    </div>
+    <div class="summary-box bg-info">
+        <div class="count">{{ totals.info }}</div>
+        <div class="label">Info</div>
+    </div>
+</div>
+
+{% if totals.high > 0 %}
+<p style="color: #dc3545; font-weight: 600;">
+    พบช่องโหว่ระดับสูง (High/Critical) จำนวน {{ totals.high }} รายการ
+    ควรดำเนินการแก้ไขโดยเร่งด่วน
+</p>
+{% endif %}
+{% if totals.medium > 0 %}
+<p style="color: #fd7e14; font-weight: 600;">
+    พบช่องโหว่ระดับปานกลาง (Medium) จำนวน {{ totals.medium }} รายการ
+    ควรวางแผนแก้ไขภายในระยะเวลาที่เหมาะสม
+</p>
+{% endif %}
+
+{% if severity_chart or cvss_chart %}
+<div class="charts-row">
+    {% if severity_chart %}
+    <div class="chart-container">
+        <p style="font-size:9pt; font-weight:600; color:#16213e; margin:0 0 4px; text-align:center;">Severity Distribution</p>
+        <img src="data:image/png;base64,{{ severity_chart }}" alt="Severity Distribution">
+    </div>
+    {% endif %}
+    {% if cvss_chart %}
+    <div class="chart-container">
+        <p style="font-size:9pt; font-weight:600; color:#16213e; margin:0 0 4px; text-align:center;">CVSS Score Distribution</p>
+        <img src="data:image/png;base64,{{ cvss_chart }}" alt="CVSS Distribution">
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- FINDINGS DISTRIBUTION + SUMMARY + COVERAGE MATRIX -->
+<div class="page-break"></div>
+
+{% if dist_chart %}
+<h2 class="section-title">Findings Distribution / การกระจายของช่องโหว่</h2>
+<div style="text-align:center; margin:12px 0;">
+    <img src="data:image/png;base64,{{ dist_chart }}" alt="Findings Distribution" style="max-width:100%;">
+</div>
+{% endif %}
+
+<h2 class="section-title">Findings Summary / สรุปผลการตรวจสอบ</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Target / โรงพยาบาล</th>
+            <th>Tool</th>
+            <th style="text-align:center">Critical</th>
+            <th style="text-align:center">High</th>
+            <th style="text-align:center">Medium</th>
+            <th style="text-align:center">Low</th>
+            <th style="text-align:center">Info</th>
+            <th style="text-align:center">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in per_scan_summary %}
+        <tr>
+            <td><strong>{{ s.target }}</strong></td>
+            <td style="font-size:9pt;">{{ s.tool }}</td>
+            <td style="text-align:center;">
+                {% if s.critical %}<strong style="color:#6f1d1b;">{{ s.critical }}</strong>{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center;">
+                {% if s.high %}<strong style="color:#dc3545;">{{ s.high }}</strong>{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center;">
+                {% if s.medium %}<strong style="color:#fd7e14;">{{ s.medium }}</strong>{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center;">
+                {% if s.low %}<span style="color:#0d9488;">{{ s.low }}</span>{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center; color:#888;">{{ s.info|default:"—" }}</td>
+            <td style="text-align:center; font-weight:700;">{{ s.total }}</td>
+        </tr>
+        {% endfor %}
+        <tr style="background:#f0f4ff; font-weight:700; border-top:2px solid #142739;">
+            <td colspan="2">รวมทั้งหมด ({{ scans|length }} scans)</td>
+            <td style="text-align:center; color:#6f1d1b;">
+                {% if totals.critical %}{{ totals.critical }}{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center; color:#dc3545;">{{ totals.high }}</td>
+            <td style="text-align:center; color:#fd7e14;">{{ totals.medium }}</td>
+            <td style="text-align:center; color:#0d9488;">{{ totals.low }}</td>
+            <td style="text-align:center; color:#888;">{{ totals.info }}</td>
+            <td style="text-align:center;">{{ total_all }}</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="page-break"></div>
+<h2 class="section-title">Coverage Matrix / ตารางความครอบคลุม OWASP Top 10:2025</h2>
+<table style="font-size:8.5pt; page-break-inside: avoid;">
+    <thead>
+        <tr>
+            <th style="width:70px; padding:4px 6px;">Category</th>
+            <th style="padding:4px 6px;">Vulnerability Class</th>
+            <th style="padding:4px 6px;">หมวดหมู่ (TH)</th>
+            <th style="text-align:center; width:34px; padding:4px 4px;">H</th>
+            <th style="text-align:center; width:34px; padding:4px 4px;">M</th>
+            <th style="text-align:center; width:34px; padding:4px 4px;">L</th>
+            <th style="text-align:center; width:90px; padding:4px 6px;">สรุป</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in coverage_matrix %}
+        <tr>
+            <td style="font-weight:700; white-space:nowrap; padding:3px 6px;">{{ row.code }}</td>
+            <td style="padding:3px 6px;">{{ row.name }}</td>
+            <td style="color:#555; padding:3px 6px;">{{ row.name_th }}</td>
+            <td style="text-align:center; padding:3px 4px;">
+                {% if row.high_total %}<strong style="color:#dc3545;">{{ row.high_total }}</strong>{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center; padding:3px 4px;">
+                {% if row.medium %}<strong style="color:#fd7e14;">{{ row.medium }}</strong>{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center; padding:3px 4px;">
+                {% if row.low %}<span style="color:#0d9488;">{{ row.low }}</span>{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center; white-space:nowrap; padding:3px 6px;">
+                {% if row.status == 'found' %}
+                    <span class="status-found">⚠ พบ</span>
+                {% elif row.status == 'clean' %}
+                    <span class="status-clean">✓ ไม่พบ</span>
+                {% else %}
+                    <span class="status-not-tested">○ ไม่ได้ทดสอบ</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- TOP VULNERABILITIES TABLE -->
+<div class="page-break"></div>
+<h2 class="section-title">Top High-Risk Vulnerabilities</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Severity</th>
+            <th>CVSS</th>
+            <th>Tool</th>
+            <th>Vulnerability</th>
+            <th>Reference</th>
+            <th>Affected URLs</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for alert in high_alerts %}
+        <tr>
+            <td><span class="sev sev-{% if alert.risk >= 4 %}critical{% else %}high{% endif %}">{% if alert.risk >= 4 %}Critical{% else %}High{% endif %}</span></td>
+            <td>{{ alert.cvss_score }}</td>
+            <td>{% for t in alert.tools %}<span class="tool-tag">{{ t|upper }}</span>{% endfor %}</td>
+            <td>{{ alert.name }}</td>
+            <td style="font-size:8pt;">
+                {% if alert.cve_ids %}{% for cve in alert.cve_ids %}<a class="cve-link" href="https://nvd.nist.gov/vuln/detail/{{ cve }}">{{ cve }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+                {% elif alert.cwe_id %}CWE-{{ alert.cwe_id }}{% else %}-{% endif %}
+            </td>
+            <td>{{ alert.urls|length }} URL{% if alert.urls|length != 1 %}s{% endif %}</td>
+        </tr>
+        {% endfor %}
+        {% for alert in medium_alerts %}
+        <tr>
+            <td><span class="sev sev-medium">Medium</span></td>
+            <td>{{ alert.cvss_score }}</td>
+            <td>{% for t in alert.tools %}<span class="tool-tag">{{ t|upper }}</span>{% endfor %}</td>
+            <td>{{ alert.name }}</td>
+            <td style="font-size:8pt;">
+                {% if alert.cve_ids %}{% for cve in alert.cve_ids %}<a class="cve-link" href="https://nvd.nist.gov/vuln/detail/{{ cve }}">{{ cve }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+                {% elif alert.cwe_id %}CWE-{{ alert.cwe_id }}{% else %}-{% endif %}
+            </td>
+            <td>{{ alert.urls|length }} URL{% if alert.urls|length != 1 %}s{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- CVSS MAPPING TABLE -->
+<div style="page-break-inside: avoid;">
+<h2 class="section-title">CVSS Mapping / การจับคู่ CVSS</h2>
+
+{% if low_count or info_count %}
+<p style="font-size: 9pt; color: #666; margin-bottom: 8px;">
+    * ตารางแสดงเฉพาะช่องโหว่ระดับ High/Critical และ Medium —
+    Low ({{ low_count }} รายการ) และ Informational ({{ info_count }} รายการ) ไม่ถูกรวมไว้ในรายละเอียด
+</p>
+{% endif %}
+
+<table>
+    <thead>
+        <tr>
+            <th>Alert</th>
+            <th style="width:60px">CWE</th>
+            <th>CVE</th>
+            <th style="width:60px">CVSS</th>
+            <th>CVSS Vector</th>
+            <th>Tool(s)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for alert in high_alerts %}
+        {% if alert.cvss_score > 0 %}
+        <tr>
+            <td>{{ alert.name }}</td>
+            <td style="font-size:8pt; white-space:nowrap;">
+                {% if alert.cwe_id %}CWE-{{ alert.cwe_id }}{% else %}—{% endif %}
+            </td>
+            <td style="font-size:7.5pt;">
+                {% if alert.cve_ids %}{% for cve in alert.cve_ids %}<a class="cve-link" href="https://nvd.nist.gov/vuln/detail/{{ cve }}">{{ cve }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center; font-weight:600;">{{ alert.cvss_score }}</td>
+            <td style="font-size: 7pt;">{{ alert.cvss_vector }}</td>
+            <td>{% for t in alert.tools %}<span class="tool-tag">{{ t|upper }}</span>{% endfor %}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+        {% for alert in medium_alerts %}
+        {% if alert.cvss_score > 0 %}
+        <tr>
+            <td>{{ alert.name }}</td>
+            <td style="font-size:8pt; white-space:nowrap;">
+                {% if alert.cwe_id %}CWE-{{ alert.cwe_id }}{% else %}—{% endif %}
+            </td>
+            <td style="font-size:7.5pt;">
+                {% if alert.cve_ids %}{% for cve in alert.cve_ids %}<a class="cve-link" href="https://nvd.nist.gov/vuln/detail/{{ cve }}">{{ cve }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center; font-weight:600;">{{ alert.cvss_score }}</td>
+            <td style="font-size: 7pt;">{{ alert.cvss_vector }}</td>
+            <td>{% for t in alert.tools %}<span class="tool-tag">{{ t|upper }}</span>{% endfor %}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<!-- DETAILED FINDINGS -->
+<div class="page-break"></div>
+<h2 class="section-title">Detailed Findings / รายละเอียดช่องโหว่</h2>
+
+{% if medium_total > medium_shown %}
+<p style="font-size: 9pt; color: #888; border-left: 3px solid #fd7e14; padding-left: 8px; margin-bottom: 12px;">
+    แสดง Medium {{ medium_shown }} จาก {{ medium_total }} กลุ่ม (High/Critical แสดงทั้งหมด) |
+    Low: {{ low_count }} รายการ | Info: {{ info_count }} รายการ — ไม่แสดงในรายงานนี้
+</p>
+{% elif low_count or info_count %}
+<p style="font-size: 9pt; color: #888; border-left: 3px solid #6c757d; padding-left: 8px; margin-bottom: 12px;">
+    Low: {{ low_count }} รายการ | Info: {{ info_count }} รายการ — ไม่แสดงในรายงานนี้
+</p>
+{% endif %}
+
+{% for alert in high_alerts %}
+<table class="zap-finding">
+    <tr>
+        <td class="zf-header {% if alert.risk >= 4 %}zf-sev-critical{% else %}zf-sev-high{% endif %}" style="width:110px;">
+            {% if alert.risk >= 4 %}Critical{% else %}High{% endif %}
+        </td>
+        <td class="zf-header {% if alert.risk >= 4 %}zf-sev-critical{% else %}zf-sev-high{% endif %}">
+            {{ alert.name }}
+            {% for t in alert.tools %}<span class="tool-tag">{{ t|upper }}</span>{% endfor %}
+        </td>
+    </tr>
+    {% if alert.has_public_exploit %}
+    <tr>
+        <td class="zf-label">&#9888; Exploit</td>
+        <td style="color:#b91c1c; font-weight:600;">
+            {% if alert.in_cisa_kev %}CISA KEV — Actively Exploited in the Wild
+            {% else %}Public Exploit Available (Exploit-DB / PoC){% endif %}
+            {% if alert.exploit_refs %}<br><span style="font-weight:400;font-size:8pt;">{{ alert.exploit_refs|join:" | " }}</span>{% endif %}
+        </td>
+    </tr>
+    {% endif %}
+    {% if alert.cve_ids %}
+    <tr>
+        <td class="zf-label">CVE</td>
+        <td>{% for cve in alert.cve_ids %}<a class="cve-tag" href="https://nvd.nist.gov/vuln/detail/{{ cve }}">{{ cve }}</a> {% endfor %}</td>
+    </tr>
+    {% endif %}
+    <tr>
+        <td class="zf-label">รายละเอียด</td>
+        <td>{{ alert.description|truncatechars:800 }}</td>
+    </tr>
+    {% if alert.url_entries %}
+    <tr>
+        <td class="zf-label">URL</td>
+        <td class="zf-url">
+            {% for entry in alert.url_entries %}
+            <a href="{{ entry.url }}">{{ entry.url }}</a>{% if not forloop.last %}<br>{% endif %}
+            {% endfor %}
+        </td>
+    </tr>
+    {% with entry=alert.url_entries.0 %}
+    {% if entry.attack %}
+    <tr><td class="zf-sublabel">Attack</td><td>{{ entry.attack }}</td></tr>
+    {% endif %}
+    {% if entry.evidence %}
+    <tr><td class="zf-sublabel">หลักฐาน</td><td><code style="font-size:8pt;">{{ entry.evidence|truncatechars:200 }}</code></td></tr>
+    {% endif %}
+    {% if entry.param %}
+    <tr><td class="zf-sublabel">Param</td><td><code style="font-size:8pt;color:#0d6efd;">{{ entry.param }}</code></td></tr>
+    {% endif %}
+    {% endwith %}
+    {% endif %}
+    <tr>
+        <td class="zf-label">จำนวนที่พบ</td>
+        <td>{{ alert.url_entries|length }}</td>
+    </tr>
+    <tr>
+        <td class="zf-label">แนวทางแก้ไข</td>
+        <td>{{ alert.solution|truncatechars:500 }}</td>
+    </tr>
+    <tr>
+        <td class="zf-label">อ้างอิง</td>
+        <td class="zf-ref">
+            {% if alert.reference_urls %}
+                {% for ref in alert.reference_urls %}<a href="{{ ref }}">{{ ref }}</a>{% endfor %}
+            {% else %}{{ alert.reference|truncatechars:300 }}{% endif %}
+        </td>
+    </tr>
+    <tr>
+        <td class="zf-label">CWE Id</td>
+        <td class="zf-cwe">
+            {% if alert.cwe_id and alert.cwe_id > 0 %}<a href="https://cwe.mitre.org/data/definitions/{{ alert.cwe_id }}.html">{{ alert.cwe_id }}</a>{% endif %}
+        </td>
+    </tr>
+    <tr>
+        <td class="zf-label">WASC Id</td>
+        <td>{% if alert.wasc_id and alert.wasc_id > 0 %}{{ alert.wasc_id }}{% endif %}</td>
+    </tr>
+    <tr>
+        <td class="zf-label">Plugin Id</td>
+        <td class="zf-plugin">
+            {% if alert.alert_ref %}<a href="https://www.zaproxy.org/docs/alerts/{{ alert.alert_ref }}/">{{ alert.alert_ref }}</a>{% endif %}
+        </td>
+    </tr>
+    {% if alert.ai %}
+    <tr>
+        <td colspan="2" style="padding:0;">
+            <div class="ai-box" style="margin:0; border-radius:0; border-left:none; border-right:none; border-bottom:none;">
+                <div class="ai-box-body">
+                    <div class="ai-section-label">คำอธิบายทางเทคนิค</div>
+                    <p class="ai-section-text">{{ alert.ai.technical_explanation }}</p>
+                    <div class="ai-section-label">ผลกระทบต่อองค์กร</div>
+                    <p class="ai-section-text">{{ alert.ai.business_impact }}</p>
+                    <div class="ai-section-label">แนวทางการแก้ไข</div>
+                    <p class="ai-section-text">{{ alert.ai.remediation }}</p>
+                </div>
+            </div>
+        </td>
+    </tr>
+    {% endif %}
+</table>
+{% endfor %}
+
+{% for alert in medium_alerts %}
+<table class="zap-finding">
+    <tr>
+        <td class="zf-header zf-sev-medium" style="width:110px;">Medium</td>
+        <td class="zf-header zf-sev-medium">
+            {{ alert.name }}
+            {% for t in alert.tools %}<span class="tool-tag">{{ t|upper }}</span>{% endfor %}
+        </td>
+    </tr>
+    {% if alert.has_public_exploit %}
+    <tr>
+        <td class="zf-label">&#9888; Exploit</td>
+        <td style="color:#c2410c; font-weight:600;">
+            {% if alert.in_cisa_kev %}CISA KEV — Actively Exploited in the Wild
+            {% else %}Public Exploit Available (Exploit-DB / PoC){% endif %}
+            {% if alert.exploit_refs %}<br><span style="font-weight:400;font-size:8pt;">{{ alert.exploit_refs|join:" | " }}</span>{% endif %}
+        </td>
+    </tr>
+    {% endif %}
+    {% if alert.cve_ids %}
+    <tr>
+        <td class="zf-label">CVE</td>
+        <td>{% for cve in alert.cve_ids %}<a class="cve-tag" href="https://nvd.nist.gov/vuln/detail/{{ cve }}">{{ cve }}</a> {% endfor %}</td>
+    </tr>
+    {% endif %}
+    <tr>
+        <td class="zf-label">รายละเอียด</td>
+        <td>{{ alert.description|truncatechars:800 }}</td>
+    </tr>
+    {% if alert.url_entries %}
+    <tr>
+        <td class="zf-label">URL</td>
+        <td class="zf-url">
+            {% for entry in alert.url_entries %}
+            <a href="{{ entry.url }}">{{ entry.url }}</a>{% if not forloop.last %}<br>{% endif %}
+            {% endfor %}
+        </td>
+    </tr>
+    {% with entry=alert.url_entries.0 %}
+    {% if entry.attack %}
+    <tr><td class="zf-sublabel">Attack</td><td>{{ entry.attack }}</td></tr>
+    {% endif %}
+    {% if entry.evidence %}
+    <tr><td class="zf-sublabel">หลักฐาน</td><td><code style="font-size:8pt;">{{ entry.evidence|truncatechars:200 }}</code></td></tr>
+    {% endif %}
+    {% if entry.param %}
+    <tr><td class="zf-sublabel">Param</td><td><code style="font-size:8pt;color:#0d6efd;">{{ entry.param }}</code></td></tr>
+    {% endif %}
+    {% endwith %}
+    {% endif %}
+    <tr>
+        <td class="zf-label">จำนวนที่พบ</td>
+        <td>{{ alert.url_entries|length }}</td>
+    </tr>
+    <tr>
+        <td class="zf-label">แนวทางแก้ไข</td>
+        <td>{{ alert.solution|truncatechars:500 }}</td>
+    </tr>
+    <tr>
+        <td class="zf-label">อ้างอิง</td>
+        <td class="zf-ref">
+            {% if alert.reference_urls %}
+                {% for ref in alert.reference_urls %}<a href="{{ ref }}">{{ ref }}</a>{% endfor %}
+            {% else %}{{ alert.reference|truncatechars:300 }}{% endif %}
+        </td>
+    </tr>
+    <tr>
+        <td class="zf-label">CWE Id</td>
+        <td class="zf-cwe">
+            {% if alert.cwe_id and alert.cwe_id > 0 %}<a href="https://cwe.mitre.org/data/definitions/{{ alert.cwe_id }}.html">{{ alert.cwe_id }}</a>{% endif %}
+        </td>
+    </tr>
+    <tr>
+        <td class="zf-label">WASC Id</td>
+        <td>{% if alert.wasc_id and alert.wasc_id > 0 %}{{ alert.wasc_id }}{% endif %}</td>
+    </tr>
+    <tr>
+        <td class="zf-label">Plugin Id</td>
+        <td class="zf-plugin">
+            {% if alert.alert_ref %}<a href="https://www.zaproxy.org/docs/alerts/{{ alert.alert_ref }}/">{{ alert.alert_ref }}</a>{% endif %}
+        </td>
+    </tr>
+    {% if alert.ai %}
+    <tr>
+        <td colspan="2" style="padding:0;">
+            <div class="ai-box" style="margin:0; border-radius:0; border-left:none; border-right:none; border-bottom:none;">
+                <div class="ai-box-body">
+                    <div class="ai-section-label">คำอธิบายทางเทคนิค</div>
+                    <p class="ai-section-text">{{ alert.ai.technical_explanation }}</p>
+                    <div class="ai-section-label">ผลกระทบต่อองค์กร</div>
+                    <p class="ai-section-text">{{ alert.ai.business_impact }}</p>
+                    <div class="ai-section-label">แนวทางการแก้ไข</div>
+                    <p class="ai-section-text">{{ alert.ai.remediation }}</p>
+                </div>
+            </div>
+        </td>
+    </tr>
+    {% endif %}
+</table>
+{% endfor %}
+
+{% if certificates %}
+<!-- ── ภาคผนวก 1 ── -->
+<div style="page-break-before:always;">
+
+<h1 style="font-size:16pt;color:#16213e;border-bottom:2px solid #16213e;padding-bottom:8px;margin-bottom:4px;">
+    ภาคผนวก 1</h1>
+<h2 style="font-size:13pt;color:#333;margin-top:0;margin-bottom:20px;">
+    ใบประกาศนียบัตรและคุณวุฒิของทีมงานผู้ทดสอบ</h2>
+
+{% regroup certificates by person_name as cert_groups %}
+{% for group in cert_groups %}
+
+<div style="margin-bottom:28px;">
+    <div style="background:#16213e;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-weight:700;font-size:11pt;">
+        <span>&#128100;</span> {{ group.grouper }}
+    </div>
+
+    {% for cert in group.list %}
+    <div style="border:1px solid #dde2ee;border-top:none;padding:14px 16px;{% if not forloop.last %}margin-bottom:0;{% else %}border-radius:0 0 6px 6px;margin-bottom:0;{% endif %}page-break-inside:avoid;">
+        <table style="width:100%;border-collapse:collapse;margin-bottom:{% if cert.data_uri %}12px{% else %}0{% endif %};">
+            <tr>
+                <td style="width:130px;color:#666;padding:3px 0;font-size:9pt;">หลักสูตร</td>
+                <td style="padding:3px 0;font-weight:600;">{{ cert.course_name }}</td>
+            </tr>
+            {% if cert.issuer %}
+            <tr>
+                <td style="color:#666;padding:3px 0;font-size:9pt;">ออกโดย</td>
+                <td style="padding:3px 0;">{{ cert.issuer }}</td>
+            </tr>
+            {% endif %}
+        </table>
+        {% if cert.data_uri %}
+        <div style="text-align:center;margin-top:10px;">
+            <img src="{{ cert.data_uri }}"
+                 style="max-width:100%;max-height:620px;border:1px solid #ddd;border-radius:4px;">
+        </div>
+        {% elif cert.is_pdf %}
+        <div style="margin-top:8px;padding:8px 12px;background:#f8f9fa;border-radius:4px;color:#888;font-size:8.5pt;font-style:italic;">
+            &#128196; ไฟล์ใบประกาศนียบัตร (PDF) — แนบแยกต่างหาก
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+</div>
+{% endfor %}
+
+</div>
+{% endif %}
+
+</body>
+</html>

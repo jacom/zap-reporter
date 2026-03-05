@@ -1,0 +1,332 @@
+{% load thai_date %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<style>
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 400; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Regular.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 600; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-SemiBold.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 700; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Bold.ttf') format('truetype'); }
+
+    @page {
+        size: A4;
+        margin: 2.5cm 3cm 2.5cm 3cm;
+        @bottom-center {
+            content: "- " counter(page) " -";
+            font-family: 'Sarabun', sans-serif;
+            font-size: 11pt;
+        }
+    }
+
+    body {
+        font-family: 'Sarabun', sans-serif;
+        font-size: 14pt;
+        color: #000;
+        line-height: 2;
+    }
+
+    .doc-center   { text-align: center; }
+    .doc-title    { font-size: 16pt; font-weight: bold; line-height: 1.6; margin: 0; }
+    .doc-subtitle { font-size: 14pt; font-weight: bold; line-height: 1.6; margin: 0; }
+
+    .section-head {
+        font-weight: bold;
+        font-size: 14pt;
+        margin-top: 12pt;
+        margin-bottom: 0;
+    }
+
+    .clause-head {
+        font-weight: bold;
+        margin-top: 10pt;
+        margin-bottom: 0;
+    }
+
+    .clause-body {
+        margin: 0;
+        text-indent: 2.5em;
+        text-align: justify;
+    }
+
+    .sub-clause {
+        margin: 0 0 0 2.5em;
+        text-align: justify;
+    }
+
+    .item-list {
+        margin: 0 0 0 3em;
+        padding: 0;
+        list-style: disc;
+    }
+    .item-list li { margin-bottom: 0; }
+
+    .page-break { page-break-before: always; }
+
+    /* ── ตารางข้อมูลคู่สัญญา ── */
+    .party-table { width: 100%; border-collapse: collapse; margin: 4pt 0; }
+    .party-table td { vertical-align: top; padding: 1pt 0; }
+    .party-table td:first-child { width: 8em; font-weight: bold; white-space: nowrap; }
+
+    /* ── ตารางช่วงเวลา ── */
+    .period-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 6pt 0;
+        font-size: 13pt;
+    }
+    .period-table th {
+        border: 1px solid #000;
+        padding: 4pt 8pt;
+        text-align: center;
+        font-weight: bold;
+        background: none;
+    }
+    .period-table td {
+        border: 1px solid #000;
+        padding: 4pt 8pt;
+        text-align: center;
+    }
+
+    /* ── เส้นคั่น ── */
+    .doc-divider { border: none; border-top: 1px solid #000; margin: 8pt 0; }
+
+    /* ── ลายเซ็น SOW ── */
+    .sig-table { width: 100%; border-collapse: collapse; margin-top: 24pt; }
+    .sig-table td {
+        width: 50%;
+        text-align: center;
+        vertical-align: bottom;
+        padding: 0 12pt;
+        line-height: 1.8;
+    }
+    .sig-line { border-top: 1px solid #000; width: 220pt; margin: 46pt auto 4pt; }
+    .sig-title { font-size: 13pt; }
+    .sig-date  { font-size: 13pt; }
+
+    /* ── ลายเซ็น NDA ── */
+    .sig-table-3col { width: 100%; border-collapse: collapse; margin-top: 12pt; }
+    .sig-table-3col td {
+        width: 33.33%;
+        text-align: center;
+        vertical-align: bottom;
+        padding: 0 6pt;
+        line-height: 1.8;
+        font-size: 13pt;
+    }
+</style>
+</head>
+<body>
+
+{# ════════════════════════════
+   เอกสาร 1 — SOW
+   ════════════════════════════ #}
+
+{% if org_logo_b64 %}
+<p class="doc-center"><img src="{{ org_logo_b64 }}" style="max-height:80pt;" alt=""></p>
+{% endif %}
+
+<p class="doc-center doc-title">ขอบเขตงาน (Statement of Work: SOW)</p>
+<p style="margin:0;">&nbsp;</p>
+
+<p style="margin:0;"><strong>เรื่อง</strong>&nbsp;&nbsp;&nbsp;&nbsp;การทดสอบเจาะระบบสารสนเทศเชิงรุก (Penetration Testing)</p>
+<p style="margin:0;"><strong>รูปแบบ</strong>&nbsp;&nbsp;{{ agreement.test_type|default:"Black Box Penetration Testing (Zero-knowledge)" }}</p>
+
+<hr class="doc-divider">
+
+<table class="party-table">
+    <tr>
+        <td>ผู้อนุญาต :</td>
+        <td>
+            {{ agreement.client_name_th }}{% if agreement.client_name_en %} ({{ agreement.client_name_en }}){% endif %}{% if agreement.client_address %}<br>{{ agreement.client_address }}{% endif %}{% if agreement.client_contact %}<br>ผู้ติดต่อ: {{ agreement.client_contact }}{% endif %}
+        </td>
+    </tr>
+    <tr>
+        <td>ผู้รับอนุญาต :</td>
+        <td>
+            {{ agreement.tester_company_th|default:org.name_th }}{% if agreement.tester_company_en %} ({{ agreement.tester_company_en }}){% endif %}{% if team_members %}<br>ผู้ปฏิบัติงาน: {% for m in team_members %}{{ m }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}
+        </td>
+    </tr>
+</table>
+
+<hr class="doc-divider">
+
+{# ── ช่วงเวลาการปฏิบัติงาน ── #}
+<p class="section-head">ช่วงเวลาการปฏิบัติงาน (Period of Performance)</p>
+
+{% if formatted_periods %}
+<table class="period-table">
+    <thead>
+        <tr>
+            <th>วันที่เริ่มต้น</th>
+            <th>เวลาเริ่ม</th>
+            <th>วันที่สิ้นสุด</th>
+            <th>เวลาสิ้นสุด</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in formatted_periods %}
+        <tr>
+            <td>{{ p.date_from_str }}</td>
+            <td>{{ p.time_from }} น.</td>
+            <td>{{ p.date_to_str }}</td>
+            <td>{{ p.time_to }} น.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="margin:0;">ระยะเวลาเจาะระบบ: ............................................................</p>
+<p style="margin:0;">ช่วงเวลาทดสอบ: ............................................................</p>
+{% endif %}
+
+{% if agreement.scope_description %}
+<p style="margin:4pt 0 0 0;"><strong>หมายเหตุ:</strong> {{ agreement.scope_description }}</p>
+{% endif %}
+
+{# ── ขอบเขตทางเทคนิค ── #}
+{% if target_systems %}
+<p class="section-head">ขอบเขตทางเทคนิค (Technical Scope)</p>
+<p style="margin:0 0 4pt 0;">การทดสอบจะครอบคลุมเป้าหมายดังนี้:</p>
+<ul class="item-list">
+    {% for sys in target_systems %}<li>{{ sys }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+{% if agreement.out_of_scope %}
+<p style="margin:4pt 0 0 0;"><strong>ระบบ/บริการที่ไม่อยู่ในขอบเขต:</strong> {{ agreement.out_of_scope }}</p>
+{% endif %}
+
+{# ── วิธีการดำเนินงาน ── #}
+{% if methodology %}
+<p class="section-head">วิธีการดำเนินงาน (Methodology)</p>
+<p style="margin:0 0 4pt 0;">ผู้ทดสอบจะต้องดำเนินการตามลำดับขั้น ดังนี้:</p>
+<ul class="item-list">
+    {% for step in methodology %}<li>{{ step }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+{# ── Rules of Engagement ── #}
+{% if rules_of_engagement %}
+<p class="section-head">ข้อตกลงและเงื่อนไขการทดสอบ (Rules of Engagement)</p>
+<ul class="item-list">
+    {% for rule in rules_of_engagement %}<li>{{ rule }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+{# ── Deliverables ── #}
+{% if deliverables %}
+<p class="section-head">ผลผลิตที่ต้องส่งมอบ (Deliverables)</p>
+<ul class="item-list">
+    {% for d in deliverables %}<li>{{ d }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+{# ── ลายเซ็น SOW ── #}
+<p style="margin-top:18pt;">เพื่อเป็นหลักฐานแห่งความยินยอม ทั้งสองฝ่ายจึงได้ลงลายมือชื่อไว้เป็นสำคัญ</p>
+
+<table class="sig-table">
+    <tr>
+        <td>
+            ลงชื่อ .................................................. ผู้อนุญาต<br>
+            ({{ agreement.client_signer_name|default:".........................................." }})<br>
+            <span class="sig-title">{{ agreement.client_signer_title|default:"&nbsp;" }}</span><br>
+            <span class="sig-title">{{ agreement.client_name_th }}</span><br>
+            <span class="sig-date">วันที่ ............................................</span>
+        </td>
+        <td>
+            ลงชื่อ .................................................. ผู้รับอนุญาต<br>
+            ({{ agreement.tester_signer_name|default:".........................................." }})<br>
+            <span class="sig-title">{{ agreement.tester_signer_title|default:"&nbsp;" }}</span><br>
+            <span class="sig-title">{{ agreement.tester_company_th|default:org.name_th }}</span><br>
+            <span class="sig-date">วันที่ ............................................</span>
+        </td>
+    </tr>
+</table>
+
+
+{# ════════════════════════════
+   เอกสาร 2 — NDA
+   ════════════════════════════ #}
+
+<div class="page-break"></div>
+
+{% if org_logo_b64 %}
+<p class="doc-center"><img src="{{ org_logo_b64 }}" style="max-height:80pt;" alt=""></p>
+{% endif %}
+
+<p class="doc-center doc-title">หนังสือข้อตกลงการรักษาความลับ</p>
+<p class="doc-center doc-subtitle">การทดสอบเจาะระบบ (Penetration Testing)</p>
+<p style="margin:0;">&nbsp;</p>
+
+<p style="margin:0;"><strong>ทำที่</strong>&nbsp;&nbsp;&nbsp;&nbsp;{{ agreement.client_address|default:agreement.client_name_th }}</p>
+<p style="margin:0;"><strong>วันที่</strong>&nbsp;&nbsp;&nbsp;&nbsp;{{ agreement.created_at|thaidate:"j F Y" }}</p>
+<p style="margin:0;">&nbsp;</p>
+
+<p class="clause-body">
+    หนังสือฉบับนี้ทำขึ้นระหว่าง <strong>{{ agreement.client_name_th }}</strong>{% if agreement.client_name_en %} ({{ agreement.client_name_en }}){% endif %}
+    (ต่อไปนี้เรียกว่า <strong>"ผู้เปิดเผยข้อมูล"</strong>) กับ
+    <strong>{{ agreement.tester_signer_name|default:"[ชื่อ-นามสกุล ผู้ทดสอบ]" }}</strong>{% if agreement.tester_company_th %} และ/หรือ <strong>{{ agreement.tester_company_th }}</strong>{% endif %}
+    (ต่อไปนี้เรียกว่า <strong>"ผู้รับข้อมูล"</strong>)
+    ทั้งสองฝ่ายตกลงทำสัญญาโดยมีรายละเอียดดังต่อไปนี้
+</p>
+
+<p class="clause-head">ข้อ 1. นิยามของข้อมูลความลับ (Definition of Confidential Information)</p>
+<p class="clause-body">"ข้อมูลความลับ" ให้หมายความรวมถึงข้อมูลดังต่อไปนี้:</p>
+<p class="sub-clause"><strong>ข้อมูลทางเทคนิค:</strong> รหัสผ่าน (Credentials), สิทธิการเข้าถึงระบบ (Access Rights), ผังโครงสร้างเครือข่ายทั้งภายในและภายนอก (Network Diagrams), หมายเลขไอพี (IP Address), รายชื่อเซิร์ฟเวอร์, รายละเอียดของซอฟต์แวร์บริหารจัดการ, รายงานผลการตรวจพบช่องโหว่ และวิธีการบุกรุกที่ค้นพบ</p>
+<p class="sub-clause"><strong>ข้อมูลส่วนบุคคล:</strong> ข้อมูลใดๆ ที่ระบุตัวตนบุคคลได้ตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 รวมถึงข้อมูลผู้ใช้งานระบบ ข้อมูลพนักงาน และข้อมูลอื่นใดที่มีความอ่อนไหว</p>
+<p class="sub-clause"><strong>ข้อมูลการบริหารงาน:</strong> ข้อมูลการปฏิบัติงานของเจ้าหน้าที่, ระเบียบวิธีปฏิบัติภายใน และข้อมูลอื่นใดที่ไม่ได้เปิดเผยต่อสาธารณะ ซึ่งผู้รับข้อมูลได้รับทราบไม่ว่าโดยตั้งใจหรือไม่ตั้งใจจากการปฏิบัติงาน</p>
+
+<p class="clause-head">ข้อ 2. หน้าที่และการรักษาความลับ (Obligations of Confidentiality)</p>
+<p class="clause-body">ผู้รับข้อมูลตกลงและรับรองปฏิบัติ ดังนี้:</p>
+<p class="sub-clause">2.1 จะรักษาความลับและป้องกันมิให้ข้อมูลรั่วไหล โดยใช้มาตรฐานการดูแลความปลอดภัยไม่ต่ำกว่ามาตรฐานสากลด้าน Cybersecurity และจะไม่เปิดเผยข้อมูลแก่บุคคลภายนอก ไม่ว่าบางส่วนหรือทั้งหมด เว้นแต่จะได้รับความยินยอมเป็นลายลักษณ์อักษรจากผู้มีอำนาจของผู้เปิดเผยข้อมูล</p>
+<p class="sub-clause">2.2 จะเข้าถึงและใช้ข้อมูลความลับเฉพาะส่วนที่จำเป็นต่อการทดสอบเจาะระบบ (Need-to-know basis) และเพื่อวัตถุประสงค์ในการวิเคราะห์และปิดช่องโหว่ตามที่ระบุในขอบเขตงาน (SOW) เท่านั้น</p>
+<p class="sub-clause">2.3 ห้ามกระทำการคัดลอก, บันทึกภาพ (Screenshot), ถ่ายโอนข้อมูล หรือดึงฐานข้อมูลจริงออกจากระบบของผู้เปิดเผยข้อมูลไปยังอุปกรณ์ส่วนตัว หรือระบบ Cloud ภายนอกโดยเด็ดขาด</p>
+<p class="sub-clause">2.4 ในกรณีที่ต้องใช้ข้อมูลเพื่อพิสูจน์ช่องโหว่ (Proof of Concept) ในรายงานผลการทดสอบ จะต้องใช้วิธีการปกปิดข้อมูล (Data Masking) หรือทำให้ข้อมูลไม่สามารถระบุตัวตนบุคคลได้ (Anonymization) อย่างสมบูรณ์</p>
+
+<p class="clause-head">ข้อ 3. การคุ้มครองข้อมูลส่วนบุคคล (Privacy Compliance)</p>
+<p class="clause-body">ผู้รับข้อมูลรับทราบและตกลงว่า:</p>
+<p class="sub-clause">3.1 ข้อมูลส่วนบุคคลและข้อมูลที่มีความอ่อนไหวสูง (Sensitive Data) ต้องได้รับการคุ้มครองเป็นพิเศษตามกฎหมาย</p>
+<p class="sub-clause">3.2 ในกรณีที่มีเหตุละเมิดข้อมูลส่วนบุคคล (Data Breach) หรือข้อมูลรั่วไหล ผู้รับข้อมูลต้องแจ้งให้ผู้รับผิดชอบโครงการของผู้เปิดเผยข้อมูลทราบทันทีภายใน 24 ชั่วโมงนับแต่ทราบเหตุ</p>
+<p class="sub-clause">3.3 หากความเสียหายเกิดจากการกระทำ ประมาทเลินเล่อ หรือละเว้นการปฏิบัติหน้าที่ของผู้รับข้อมูล ผู้รับข้อมูลต้องเป็นผู้รับผิดชอบต่อค่าเสียหายทางแพ่ง ค่าปรับทางปกครอง และโทษทางอาญาที่เกิดขึ้นตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล และ พ.ร.บ. ว่าด้วยการกระทำความผิดเกี่ยวกับคอมพิวเตอร์ อย่างเต็มจำนวน</p>
+
+<p class="clause-head">ข้อ 4. ระยะเวลาของการรักษาความลับ (Term of Confidentiality)</p>
+<p class="clause-body">หน้าที่ในการรักษาความลับตามหนังสือฉบับนี้ ให้มีผลผูกพันนับตั้งแต่วันที่เริ่มลงนามหรือเริ่มเข้าปฏิบัติงาน (แล้วแต่เหตุใดจะเกิดก่อน) และให้มีผลบังคับใช้ต่อเนื่องไปเป็นระยะเวลา <strong>{{ agreement.nda_duration_years }} ({% if agreement.nda_duration_years == 1 %}หนึ่ง{% elif agreement.nda_duration_years == 2 %}สอง{% elif agreement.nda_duration_years == 3 %}สาม{% elif agreement.nda_duration_years == 4 %}สี่{% elif agreement.nda_duration_years == 5 %}ห้า{% elif agreement.nda_duration_years == 6 %}หก{% elif agreement.nda_duration_years == 7 %}เจ็ด{% elif agreement.nda_duration_years == 8 %}แปด{% elif agreement.nda_duration_years == 9 %}เก้า{% elif agreement.nda_duration_years == 10 %}สิบ{% else %}{{ agreement.nda_duration_years }}{% endif %}) ปี</strong> นับจากวันที่การดำเนินโครงการสิ้นสุดลง</p>
+
+<p class="clause-head">ข้อ 5. การส่งคืนหรือทำลายข้อมูล (Return or Destruction of Information)</p>
+<p class="clause-body">เมื่อสิ้นสุดโครงการ หรือเมื่อผู้เปิดเผยข้อมูลร้องขอ ผู้รับข้อมูลมีหน้าที่ดังนี้:</p>
+<p class="sub-clause">5.1 ส่งคืนเอกสารและสื่อบันทึกข้อมูลต้นฉบับทั้งหมดที่ได้รับจากผู้เปิดเผยข้อมูล</p>
+<p class="sub-clause">5.2 ดำเนินการลบและทำลายข้อมูลอิเล็กทรอนิกส์ ไฟล์บันทึกการทดสอบ (Log files) และรหัสผ่านชั่วคราวออกจากอุปกรณ์ของผู้รับข้อมูลอย่างถาวร (Permanent Erasure) ในลักษณะที่ไม่สามารถกู้คืนมาได้</p>
+<p class="sub-clause">5.3 ผู้รับข้อมูลต้องจัดทำบันทึกยืนยันเป็นลายลักษณ์อักษรส่งให้ผู้เปิดเผยข้อมูล ว่าได้ดำเนินการทำลายข้อมูลความลับดังกล่าวทั้งหมดแล้ว</p>
+
+<p class="clause-body" style="margin-top:12pt;">
+    เพื่อเป็นหลักฐานแห่งความยินยอม ทั้งสองฝ่ายจึงได้ลงลายมือชื่อไว้เป็นสำคัญ ณ วันที่ระบุข้างต้น
+</p>
+
+{# ── ลายเซ็น NDA ── #}
+<p style="margin-top:14pt; margin-bottom:0;">ลงชื่อ .................................................. <strong>ผู้เปิดเผยข้อมูล</strong></p>
+<p style="margin:0;">({{ agreement.client_signer_name|default:".........................................." }})</p>
+<p style="margin:0;">{{ agreement.client_signer_title|default:"ตำแหน่ง .............................................." }}</p>
+<p style="margin:0;">{{ agreement.client_name_th }}</p>
+
+<table class="sig-table-3col" style="margin-top:18pt;">
+    <tr>
+        <td>
+            ลงชื่อ ................ ผู้รับข้อมูล คนที่ 1<br>
+            ({{ agreement.tester_signer_name|default:".............................." }})<br>
+            {{ agreement.tester_signer_title|default:"............................................" }}
+        </td>
+        <td>
+            ลงชื่อ ................ ผู้รับข้อมูล คนที่ 2<br>
+            (..............................)<br>
+            ............................................
+        </td>
+        <td>
+            ลงชื่อ ................ พยาน<br>
+            (..............................)<br>
+            ............................................
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>
