@@ -22,5 +22,4 @@ reports/agreement_template_backup_*.docx
 reports/agreement_template_noto_backup.docx
 
 # Install scripts
-install.sh
 git-setup.sh
