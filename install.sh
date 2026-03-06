@@ -385,6 +385,214 @@ else
 fi
 
 # =============================================================================
+section "ติดตั้ง Security Tools"
+# =============================================================================
+CYAN='\033[0;36m'
+tool_ok()  { echo -e "  ${GREEN}[มีแล้ว]${NC}  $1"; }
+tool_new() { echo -e "  ${GREEN}[ติดตั้ง]${NC} $1"; }
+
+# --- 1. OWASP ZAP ---
+if [[ -f /opt/zap/zap.sh ]]; then
+    tool_ok "OWASP ZAP"
+else
+    log "ติดตั้ง OWASP ZAP..."
+    apt-get install -y --no-install-recommends default-jre-headless -qq
+
+    set +o pipefail
+    ZAP_VER=$(curl -sf "https://api.github.com/repos/zaproxy/zaproxy/releases/latest" \
+        | grep '"tag_name"' | cut -d'"' -f4 | tr -d 'v')
+    set -o pipefail
+    ZAP_VER=${ZAP_VER:-2.15.0}
+
+    curl -fsSL "https://github.com/zaproxy/zaproxy/releases/download/v${ZAP_VER}/ZAP_${ZAP_VER}_Linux.tar.gz" \
+        -o /tmp/zap.tar.gz
+    tar -xzf /tmp/zap.tar.gz -C /opt/
+    mv "/opt/ZAP_${ZAP_VER}/" /opt/zap/
+    rm -f /tmp/zap.tar.gz
+    tool_new "OWASP ZAP ${ZAP_VER}"
+fi
+
+# Generate ZAP API key และอัปเดต .env
+set +o pipefail
+ZAP_KEY=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
+set -o pipefail
+sed -i "s|^ZAP_API_KEY=.*|ZAP_API_KEY=${ZAP_KEY}|" "$ENV_FILE"
+
+# Systemd service สำหรับ ZAP
+if [[ ! -f /etc/systemd/system/zap.service ]]; then
+    cat > /etc/systemd/system/zap.service <<EOF
+[Unit]
+Description=OWASP ZAP Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=nobody
+ExecStart=/opt/zap/zap.sh -daemon -host 127.0.0.1 -port 8090 \\
+    -config api.key=${ZAP_KEY} \\
+    -config api.addrs.addr.name=.* \\
+    -config api.addrs.addr.enabled=true
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable zap
+    systemctl start zap
+fi
+
+# --- 2. Trivy ---
+if command -v trivy &>/dev/null; then
+    tool_ok "Trivy ($(trivy --version 2>/dev/null | head -1))"
+else
+    log "ติดตั้ง Trivy..."
+    wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key \
+        | gpg --dearmor > /usr/share/keyrings/trivy.gpg
+    echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" \
+        > /etc/apt/sources.list.d/trivy.list
+    apt-get update -qq
+    apt-get install -y trivy -qq
+    tool_new "Trivy"
+fi
+
+# Trivy server service
+if [[ ! -f /etc/systemd/system/trivy-server.service ]]; then
+    cat > /etc/systemd/system/trivy-server.service <<EOF
+[Unit]
+Description=Trivy Vulnerability Scanner Server
+After=network.target
+
+[Service]
+Type=simple
+User=nobody
+ExecStart=/usr/bin/trivy server --listen 127.0.0.1:4954
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable trivy-server
+    systemctl start trivy-server
+fi
+
+# --- 3. WPScan ---
+if command -v wpscan &>/dev/null; then
+    tool_ok "WPScan ($(wpscan --version 2>/dev/null | grep 'WPScan' | head -1 | awk '{print $2}'))"
+else
+    log "ติดตั้ง WPScan..."
+    apt-get install -y --no-install-recommends ruby ruby-dev libcurl4-openssl-dev make -qq
+    gem install wpscan --no-document -q
+    tool_new "WPScan"
+fi
+
+# --- 4. ffuf (Dir Brute) ---
+if command -v ffuf &>/dev/null; then
+    tool_ok "ffuf ($(ffuf -V 2>/dev/null | head -1))"
+else
+    log "ติดตั้ง ffuf..."
+    set +o pipefail
+    FFUF_VER=$(curl -sf "https://api.github.com/repos/ffuf/ffuf/releases/latest" \
+        | grep '"tag_name"' | cut -d'"' -f4)
+    set -o pipefail
+    FFUF_VER=${FFUF_VER:-v2.1.0}
+    FFUF_URL="https://github.com/ffuf/ffuf/releases/download/${FFUF_VER}/ffuf_${FFUF_VER#v}_linux_amd64.tar.gz"
+    curl -fsSL "$FFUF_URL" -o /tmp/ffuf.tar.gz
+    tar -xzf /tmp/ffuf.tar.gz -C /usr/local/bin/ ffuf
+    chmod +x /usr/local/bin/ffuf
+    rm -f /tmp/ffuf.tar.gz
+    tool_new "ffuf ${FFUF_VER}"
+fi
+
+# --- 5. testssl.sh ---
+if command -v testssl.sh &>/dev/null || [[ -f /opt/testssl/testssl.sh ]]; then
+    tool_ok "testssl.sh"
+else
+    log "ติดตั้ง testssl.sh..."
+    apt-get install -y --no-install-recommends dnsutils openssl -qq
+    git clone --depth 1 https://github.com/drwetter/testssl.sh.git /opt/testssl
+    ln -sf /opt/testssl/testssl.sh /usr/local/bin/testssl.sh
+    chmod +x /opt/testssl/testssl.sh
+    tool_new "testssl.sh"
+fi
+
+# --- 6. SonarQube ---
+if systemctl is-active --quiet sonarqube 2>/dev/null || [[ -d /opt/sonarqube ]]; then
+    tool_ok "SonarQube"
+else
+    log "ติดตั้ง SonarQube Community Edition..."
+    apt-get install -y --no-install-recommends openjdk-17-jre-headless unzip -qq
+
+    # SonarQube ต้องมี vm.max_map_count สูงพอ
+    sysctl -w vm.max_map_count=524288 >/dev/null
+    echo "vm.max_map_count=524288" >> /etc/sysctl.conf
+
+    # สร้าง sonarqube user และ database
+    if ! id sonarqube &>/dev/null; then
+        useradd --system --no-create-home --shell /bin/false sonarqube
+    fi
+    set +o pipefail
+    SQ_PASS=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 20)
+    set -o pipefail
+    sudo -u postgres psql -v ON_ERROR_STOP=0 <<SQL 2>/dev/null
+DO \$\$ BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sonarqube') THEN
+        CREATE USER sonarqube WITH PASSWORD '${SQ_PASS}';
+    END IF;
+END \$\$;
+SELECT 'CREATE DATABASE sonarqube OWNER sonarqube'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'sonarqube')
+\gexec
+SQL
+
+    # ดาวน์โหลด SonarQube
+    SQ_VER="25.1.0.102122"
+    curl -fsSL "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-${SQ_VER}.zip" \
+        -o /tmp/sonarqube.zip
+    unzip -q /tmp/sonarqube.zip -d /opt/
+    mv "/opt/sonarqube-${SQ_VER}/" /opt/sonarqube/
+    rm -f /tmp/sonarqube.zip
+
+    # ตั้งค่า database
+    cat >> /opt/sonarqube/conf/sonar.properties <<SQCONF
+sonar.jdbc.username=sonarqube
+sonar.jdbc.password=${SQ_PASS}
+sonar.jdbc.url=jdbc:postgresql://127.0.0.1/sonarqube
+sonar.web.host=127.0.0.1
+sonar.web.port=9000
+SQCONF
+
+    chown -R sonarqube:sonarqube /opt/sonarqube
+
+    cat > /etc/systemd/system/sonarqube.service <<EOF
+[Unit]
+Description=SonarQube Code Quality Scanner
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=forking
+User=sonarqube
+Group=sonarqube
+ExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start
+ExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop
+Restart=on-failure
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable sonarqube
+    systemctl start sonarqube
+    tool_new "SonarQube ${SQ_VER}"
+fi
+
+# =============================================================================
 section "สรุปการติดตั้ง"
 # =============================================================================
 echo ""
