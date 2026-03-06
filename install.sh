@@ -540,6 +540,15 @@ else
     tool_new "ffuf ${FFUF_VER}"
 fi
 
+# --- 4b. SecLists (wordlists สำหรับ ffuf) ---
+if [[ -d /opt/SecLists ]]; then
+    tool_ok "SecLists"
+else
+    log "ดาวน์โหลด SecLists wordlists..."
+    git clone --depth 1 https://github.com/danielmiessler/SecLists.git /opt/SecLists
+    tool_new "SecLists → /opt/SecLists"
+fi
+
 # --- 5. testssl.sh ---
 if command -v testssl.sh &>/dev/null || [[ -f /opt/testssl/testssl.sh ]]; then
     tool_ok "testssl.sh"
