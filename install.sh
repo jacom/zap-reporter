@@ -210,7 +210,7 @@ ZAP_API_KEY=
 TRIVY_SERVER_URL=http://127.0.0.1:4954
 
 # SonarQube
-SONARQUBE_URL=http://127.0.0.1:9000
+SONARQUBE_URL=http://127.0.0.1:9100
 SONARQUBE_TOKEN=
 
 # Wazuh
@@ -584,7 +584,7 @@ sonar.jdbc.username=sonarqube
 sonar.jdbc.password=${SQ_PASS}
 sonar.jdbc.url=jdbc:postgresql://127.0.0.1/sonarqube
 sonar.web.host=127.0.0.1
-sonar.web.port=9000
+sonar.web.port=9100
 SQCONF
 
     chown -R sonarqube:sonarqube /opt/sonarqube
