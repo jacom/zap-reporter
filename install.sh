@@ -137,7 +137,9 @@ section "ตั้งค่า PostgreSQL"
 # =============================================================================
 # Generate password ถ้าไม่ได้กำหนด
 if [[ -z "$DB_PASS" ]]; then
+    set +o pipefail
     DB_PASS=$(tr -dc 'A-Za-z0-9!@#%^&*' < /dev/urandom | head -c 20)
+    set -o pipefail
 fi
 
 log "ตรวจสอบว่า PostgreSQL กำลังทำงาน..."
@@ -173,7 +175,9 @@ log "PostgreSQL พร้อมใช้งาน (DB: $DB_NAME, User: $DB_USER)
 # =============================================================================
 section "สร้างไฟล์ .env"
 # =============================================================================
+set +o pipefail
 SECRET_KEY=$(tr -dc 'A-Za-z0-9!@#$%^&*(-_=+)' < /dev/urandom | head -c 50)
+set -o pipefail
 
 # ดึง IP ของเครื่องเพื่อใส่ใน ALLOWED_HOSTS
 SERVER_IP=$(hostname -I | awk '{print $1}')
