@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 # ── Wordlist candidates (first existing file wins) ───────────────────────────
 _WORDLIST_CANDIDATES = [
+    '/opt/SecLists/Discovery/Web-Content/common.txt',
+    '/opt/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt',
     '/usr/share/dirb/wordlists/common.txt',
     '/usr/share/wordlists/dirb/common.txt',
     '/usr/share/dirbuster/wordlists/directory-list-2.3-small.txt',
