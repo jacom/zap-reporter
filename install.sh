@@ -501,7 +501,13 @@ if command -v wpscan &>/dev/null; then
 else
     log "ติดตั้ง WPScan..."
     apt-get install -y --no-install-recommends ruby ruby-dev libcurl4-openssl-dev make -qq
-    gem install wpscan --no-document -q
+    gem install wpscan --no-document
+
+    # gem วาง binary ไว้ใน gem bin path — symlink ให้ใช้งานได้จากทุกที่
+    WPSCAN_BIN=$(gem environment gemdir)/bin/wpscan
+    if [[ -f "$WPSCAN_BIN" ]]; then
+        ln -sf "$WPSCAN_BIN" /usr/local/bin/wpscan
+    fi
     tool_new "WPScan"
 fi
 
