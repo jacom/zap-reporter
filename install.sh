@@ -146,6 +146,17 @@ if ! systemctl is-active --quiet postgresql; then
     systemctl enable postgresql
 fi
 
+# ตรวจสอบ pg_hba.conf ว่ามี rule TCP สำหรับ zap_reporter ไหม (กรณีติดตั้งร่วมกับ OpenVAS)
+PG_HBA=$(find /etc/postgresql -name pg_hba.conf 2>/dev/null | head -1)
+if [[ -n "$PG_HBA" ]]; then
+    if ! grep -q "host.*all.*${DB_USER}.*127.0.0.1" "$PG_HBA" && \
+       ! grep -q "host.*all.*all.*127.0.0.1" "$PG_HBA"; then
+        warn "ไม่พบ TCP rule ใน pg_hba.conf — เพิ่ม rule สำหรับ ${DB_USER}..."
+        sed -i "/^# IPv4 local connections:/a host    all             ${DB_USER}      127.0.0.1\/32            scram-sha-256" "$PG_HBA"
+        systemctl reload postgresql
+    fi
+fi
+
 log "สร้าง database user และ database..."
 # ใช้ here-doc เรียก psql ผ่าน postgres user
 sudo -u postgres psql -v ON_ERROR_STOP=0 <<SQL
