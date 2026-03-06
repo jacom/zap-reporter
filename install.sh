@@ -32,7 +32,7 @@ APP_NAME="zap-reporter"
 APP_DIR="/opt/zap-reporter"
 APP_USER="zap-reporter"
 APP_PORT="8443"
-REPO_SRC="$(cd "$(dirname "$0")" && pwd)"   # โฟลเดอร์ที่รัน script นี้อยู่
+REPO_URL="https://github.com/jacom/zap-reporter.git"
 DB_NAME="zap_report"
 DB_USER="zap_reporter"
 DB_PASS=""   # จะ generate อัตโนมัติถ้าไม่ระบุ
@@ -116,21 +116,19 @@ else
 fi
 
 # =============================================================================
-section "คัดลอกไฟล์แอปพลิเคชัน"
+section "ดาวน์โหลดไฟล์แอปพลิเคชัน"
 # =============================================================================
-log "คัดลอกไฟล์จาก $REPO_SRC ไปยัง $APP_DIR ..."
-mkdir -p "$APP_DIR"
-rsync -a --exclude='venv/' \
-         --exclude='__pycache__/' \
-         --exclude='*.pyc' \
-         --exclude='.env' \
-         --exclude='media/' \
-         --exclude='staticfiles/' \
-         --exclude='reports/agreement_template_backup_*' \
-         "$REPO_SRC/" "$APP_DIR/"
+if [[ -f "$APP_DIR/manage.py" ]]; then
+    log "พบไฟล์ app อยู่แล้ว — ดึงอัปเดตจาก GitHub..."
+    git -C "$APP_DIR" pull --ff-only origin main || warn "git pull ล้มเหลว — ใช้ไฟล์ที่มีอยู่"
+else
+    log "Clone repository จาก $REPO_URL ..."
+    rm -rf "$APP_DIR"
+    git clone --depth 1 "$REPO_URL" "$APP_DIR"
+fi
 
 mkdir -p "$APP_DIR/media" "$APP_DIR/staticfiles"
-log "คัดลอกเสร็จสิ้น"
+log "ดาวน์โหลดเสร็จสิ้น"
 
 # =============================================================================
 section "ตั้งค่า PostgreSQL"
