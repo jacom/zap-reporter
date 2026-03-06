@@ -418,6 +418,13 @@ ZAP_KEY=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
 set -o pipefail
 sed -i "s|^ZAP_API_KEY=.*|ZAP_API_KEY=${ZAP_KEY}|" "$ENV_FILE"
 
+# สร้าง user และ home dir สำหรับ ZAP
+if ! id zap &>/dev/null; then
+    useradd --system --create-home --home-dir /opt/zap-home --shell /bin/false zap
+fi
+mkdir -p /opt/zap-home
+chown zap:zap /opt/zap-home
+
 # Systemd service สำหรับ ZAP
 if [[ ! -f /etc/systemd/system/zap.service ]]; then
     cat > /etc/systemd/system/zap.service <<EOF
@@ -427,13 +434,17 @@ After=network.target
 
 [Service]
 Type=simple
-User=nobody
+User=zap
+Group=zap
+Environment=HOME=/opt/zap-home
+WorkingDirectory=/opt/zap-home
 ExecStart=/opt/zap/zap.sh -daemon -host 127.0.0.1 -port 8090 \\
     -config api.key=${ZAP_KEY} \\
     -config api.addrs.addr.name=.* \\
     -config api.addrs.addr.enabled=true
 Restart=on-failure
 RestartSec=10
+TimeoutStartSec=120
 
 [Install]
 WantedBy=multi-user.target
@@ -441,6 +452,11 @@ EOF
     systemctl daemon-reload
     systemctl enable zap
     systemctl start zap
+else
+    # อัปเดต API key ใน service ที่มีอยู่แล้ว
+    sed -i "s|api.key=.*|api.key=${ZAP_KEY} \\\\|" /etc/systemd/system/zap.service
+    systemctl daemon-reload
+    systemctl restart zap
 fi
 
 # --- 2. Trivy ---
