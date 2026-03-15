@@ -1,0 +1,131 @@
+{% extends "dashboard/base.html" %}
+{% load thai_date %}
+{% block title %}Dashboard - ZAP Reports{% endblock %}
+
+{% block content %}
+<div class="theme-dashboard">
+    <section class="theme-panel">
+        <h3 class="theme-title">System Status</h3>
+        <div class="theme-card-grid">
+            <div class="theme-stat-card">
+                {% if zap_ok %}
+                <div class="theme-stat-number status-online">Online</div>
+                {% else %}
+                <div class="theme-stat-number status-offline">Offline</div>
+                {% endif %}
+                <div class="theme-stat-label">ZAP Status</div>
+            </div>
+            <div class="theme-stat-card">
+                <div class="theme-stat-number">{{ zap_version|default:"-" }}</div>
+                <div class="theme-stat-label">ZAP Version</div>
+            </div>
+            <div class="theme-stat-card">
+                <div class="theme-stat-number">{{ stats.total_scans|default:"0" }}</div>
+                <div class="theme-stat-label">Hosts Scanned</div>
+            </div>
+            <div class="theme-stat-card">
+                <div class="theme-stat-number">{{ stats.total_alerts|default:"0" }}</div>
+                <div class="theme-stat-label">Total Alerts</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="theme-panel" id="alert-summary">
+        <h3 class="theme-title">Alert Summary</h3>
+        <div class="theme-card-grid">
+            <div class="theme-stat-card" data-glow="danger">
+                <i class="bi bi-exclamation-triangle card-icon risk-high"></i>
+                <div class="theme-stat-number risk-high">{{ stats.total_high|default:"0" }}</div>
+                <div class="theme-stat-label">High Risk</div>
+            </div>
+            <div class="theme-stat-card" data-glow="medium">
+                <i class="bi bi-exclamation-circle card-icon risk-medium"></i>
+                <div class="theme-stat-number risk-medium">{{ stats.total_medium|default:"0" }}</div>
+                <div class="theme-stat-label">Medium Risk</div>
+            </div>
+            <div class="theme-stat-card" data-glow="low">
+                <i class="bi bi-info-circle card-icon risk-low"></i>
+                <div class="theme-stat-number risk-low">{{ stats.total_low|default:"0" }}</div>
+                <div class="theme-stat-label">Low Risk</div>
+            </div>
+            <div class="theme-stat-card" data-glow="info">
+                <i class="bi bi-shield-check card-icon risk-info"></i>
+                <div class="theme-stat-number risk-info">{{ stats.total_info|default:"0" }}</div>
+                <div class="theme-stat-label">Informational</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="theme-panel">
+        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+            <h3 class="theme-title mb-0">Active Scans</h3>
+            <div class="d-flex gap-2">
+                <a href="{% url 'dashboard-report-builder' %}" class="btn btn-outline-info btn-sm">
+                    <i class="bi bi-file-earmark-text"></i> Generate Report
+                </a>
+                <a href="{% url 'dashboard-scan-new' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> Start Scan
+                </a>
+            </div>
+        </div>
+        {% if scans %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Target</th>
+                        <th>Tool</th>
+                        <th>Scan Type</th>
+                        <th>Status</th>
+                        <th>High</th>
+                        <th>Medium</th>
+                        <th>Low</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for scan in scans %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'dashboard-scan-detail' scan.id %}">
+                                <strong>{{ scan.target.name|truncatechars:35 }}</strong>
+                            </a>
+                            <br><small class="text-muted">{{ scan.target.url|truncatechars:50 }}</small>
+                        </td>
+                        <td>
+                            <span class="badge {{ scan.tool|tool_badge_class }}">
+                                <i class="bi {{ scan.tool|tool_badge_icon }}"></i>
+                                {{ scan.get_tool_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge scan-type-badge scan-type-{{ scan.scan_type }}">
+                                {{ scan.scan_type|capfirst }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if scan.status == 'completed' %}
+                            <span class="badge bg-success">Completed</span>
+                            {% elif scan.status == 'running' %}
+                            <span class="badge bg-primary"><span class="spinner-border spinner-border-sm"></span> Running</span>
+                            {% elif scan.status == 'failed' %}
+                            <span class="badge bg-danger">Failed</span>
+                            {% else %}
+                            <span class="badge bg-warning">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge severity-badge-high">{{ scan.high_count }}</span></td>
+                        <td><span class="badge severity-badge-medium">{{ scan.medium_count }}</span></td>
+                        <td><span class="badge severity-badge-low">{{ scan.low_count }}</span></td>
+                        <td>{{ scan.started_at|thaidate:"j M Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">No active scans</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,181 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Monthly Trends - ZAP Reports{% endblock %}
+
+{% block content %}
+<div class="dashboard-hero mb-4">
+    <div class="row align-items-center g-3">
+        <div class="col-lg-8">
+            <p class="eyebrow mb-2">Analytics</p>
+            <h2 class="mb-2"><i class="bi bi-graph-up"></i> Monthly Trends</h2>
+            <p class="text-muted mb-0">Track vulnerability trends over time</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <form method="get" class="d-inline-block">
+                <select name="target" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">All Targets</option>
+                    {% for t in targets %}
+                    <option value="{{ t.id }}" {% if selected_target == t.id|slugify %}selected{% endif %}>
+                        {{ t.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h6><i class="bi bi-speedometer2"></i> Risk Score Trend</h6>
+            <canvas id="riskTrendChart" height="250"></canvas>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h6><i class="bi bi-bar-chart-steps"></i> Vulnerability Counts by Severity</h6>
+            <canvas id="severityTrendChart" height="250"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Table -->
+<div class="card shadow-sm">
+    <div class="card-header">
+        <i class="bi bi-table"></i> Monthly Summary
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Target</th>
+                    <th>Scans</th>
+                    <th>Avg Risk</th>
+                    <th>High</th>
+                    <th>Medium</th>
+                    <th>Low</th>
+                    <th>Info</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in summaries %}
+                <tr>
+                    <td>{{ s.year_month|date:"Y-m" }}</td>
+                    <td>{{ s.target.name }}</td>
+                    <td>{{ s.total_scans }}</td>
+                    <td><strong>{{ s.avg_risk_score|floatformat:1 }}</strong></td>
+                    <td><span class="badge severity-badge-high">{{ s.high_count }}</span></td>
+                    <td><span class="badge severity-badge-medium">{{ s.medium_count }}</span></td>
+                    <td><span class="badge severity-badge-low">{{ s.low_count }}</span></td>
+                    <td><span class="badge severity-badge-info">{{ s.info_count }}</span></td>
+                    <td>
+                        {% with month=s.year_month|date:"Y-m" %}
+                        <form method="post" action="{% url 'dashboard-trend-delete' s.pk %}"
+                              onsubmit="return confirm('ลบข้อมูล Trend เดือน {{ month }} ของ {{ s.target.name }} ออก?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="ลบ">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endwith %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="text-center text-muted py-4">No data yet. Complete some scans first.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const labels = {{ chart_labels|safe }};
+    const riskScores = {{ chart_risk_scores|safe }};
+    const highs = {{ chart_highs|safe }};
+    const mediums = {{ chart_mediums|safe }};
+    const lows = {{ chart_lows|safe }};
+
+    const chartOpts = {
+        gridColor: 'rgba(255, 255, 255, 0.04)',
+        tickColor: '#7e8ba4',
+        legendFont: { family: 'Quicksand', weight: '600' },
+    };
+
+    // Risk Score Trend (gradient fill)
+    const riskCtx = document.getElementById('riskTrendChart');
+    if (riskCtx && labels.length > 0) {
+        const riskGrad = riskCtx.getContext('2d').createLinearGradient(0, 0, 0, 250);
+        riskGrad.addColorStop(0, 'rgba(255, 82, 82, 0.25)');
+        riskGrad.addColorStop(1, 'rgba(255, 82, 82, 0.0)');
+
+        new Chart(riskCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Avg Risk Score',
+                    data: riskScores,
+                    borderColor: '#ff5252',
+                    backgroundColor: riskGrad,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: '#ff5252',
+                    pointHoverBorderColor: '#fff',
+                    pointHoverBorderWidth: 2,
+                    borderWidth: 2.5,
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: chartOpts.gridColor }, ticks: { color: chartOpts.tickColor } },
+                    x: { grid: { color: chartOpts.gridColor }, ticks: { color: chartOpts.tickColor } }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: chartOpts.tickColor, font: chartOpts.legendFont, usePointStyle: true, padding: 16 }
+                    }
+                }
+            }
+        });
+    }
+
+    // Severity Trend (rounded bars, semi-transparent)
+    const sevCtx = document.getElementById('severityTrendChart');
+    if (sevCtx && labels.length > 0) {
+        new Chart(sevCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'High', data: highs, backgroundColor: 'rgba(255, 82, 82, 0.7)', borderColor: '#ff5252', borderWidth: 1, borderRadius: 6, borderSkipped: false },
+                    { label: 'Medium', data: mediums, backgroundColor: 'rgba(255, 164, 0, 0.7)', borderColor: '#ffa400', borderWidth: 1, borderRadius: 6, borderSkipped: false },
+                    { label: 'Low', data: lows, backgroundColor: 'rgba(79, 195, 247, 0.7)', borderColor: '#4fc3f7', borderWidth: 1, borderRadius: 6, borderSkipped: false },
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { stacked: true, grid: { color: chartOpts.gridColor }, ticks: { color: chartOpts.tickColor } },
+                    y: { stacked: true, beginAtZero: true, grid: { color: chartOpts.gridColor }, ticks: { color: chartOpts.tickColor } }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: chartOpts.tickColor, font: chartOpts.legendFont, usePointStyle: true, padding: 16 }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,435 @@
+{% extends "dashboard/base.html" %}
+{% block title %}New Scan — VA Platform{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard-index' %}">Dashboard</a></li>
+        <li class="breadcrumb-item active">New Scan</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-crosshair"></i> Start New Scan</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" id="scanForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <!-- Tool Selector -->
+                    <div class="mb-3">
+                        <label class="form-label">Scan Tool
+                            <small class="text-muted ms-2" style="font-weight:400; font-size:0.75rem;">
+                                <span class="badge-graybox-legend"></span> Graybox (upload report)
+                            </small>
+                        </label>
+                        <div class="tool-selector">
+                            <!-- Phase 1: Recon -->
+                            <label class="tool-option" data-tool="nmap">
+                                <b class="tool-order">1</b>
+                                <input type="radio" name="tool" value="nmap">
+                                <i class="bi bi-ethernet"></i>
+                                <span>Nmap</span>
+                                <small>Port Scan</small>
+                            </label>
+                            <label class="tool-option" data-tool="httpx">
+                                <b class="tool-order">2</b>
+                                <input type="radio" name="tool" value="httpx">
+                                <i class="bi bi-globe2"></i>
+                                <span>httpx</span>
+                                <small>HTTP Probe</small>
+                            </label>
+                            <label class="tool-option" data-tool="testssl">
+                                <b class="tool-order">3</b>
+                                <input type="radio" name="tool" value="testssl">
+                                <i class="bi bi-lock"></i>
+                                <span>testssl.sh</span>
+                                <small>SSL/TLS Check</small>
+                            </label>
+                            <!-- Phase 2: Discovery -->
+                            <label class="tool-option" data-tool="dirb">
+                                <b class="tool-order">4</b>
+                                <input type="radio" name="tool" value="dirb">
+                                <i class="bi bi-folder-symlink"></i>
+                                <span>Dir Brute</span>
+                                <small>ffuf / DirBuster</small>
+                            </label>
+                            <label class="tool-option" data-tool="wpscan">
+                                <b class="tool-order">5</b>
+                                <input type="radio" name="tool" value="wpscan">
+                                <i class="bi bi-wordpress"></i>
+                                <span>WPScan</span>
+                                <small>WordPress Audit</small>
+                            </label>
+                            <!-- Phase 3: Vulnerability Scan -->
+                            <label class="tool-option active" data-tool="zap">
+                                <b class="tool-order">6</b>
+                                <input type="radio" name="tool" value="zap" checked>
+                                <i class="bi bi-bug"></i>
+                                <span>OWASP ZAP</span>
+                                <small>Web App Scan</small>
+                            </label>
+                            <label class="tool-option" data-tool="nuclei">
+                                <b class="tool-order">7</b>
+                                <input type="radio" name="tool" value="nuclei">
+                                <i class="bi bi-stars"></i>
+                                <span>Nuclei</span>
+                                <small>Template Scan</small>
+                            </label>
+                            <label class="tool-option" data-tool="sqlmap">
+                                <b class="tool-order">8</b>
+                                <input type="radio" name="tool" value="sqlmap">
+                                <i class="bi bi-database-exclamation"></i>
+                                <span>sqlmap</span>
+                                <small>SQL Injection</small>
+                            </label>
+                            <!-- Phase 4: External Reports -->
+                            <label class="tool-option" data-tool="openvas">
+                                <b class="tool-order">9</b>
+                                <input type="radio" name="tool" value="openvas">
+                                <i class="bi bi-hdd-network"></i>
+                                <span>OpenVAS</span>
+                                <small>Fetch Report</small>
+                            </label>
+                            <label class="tool-option" data-tool="wazuh">
+                                <b class="tool-order">10</b>
+                                <input type="radio" name="tool" value="wazuh">
+                                <i class="bi bi-eye"></i>
+                                <span>Wazuh</span>
+                                <small>Fetch Alerts</small>
+                            </label>
+                            <!-- Graybox -->
+                            <label class="tool-option graybox" data-tool="trivy">
+                                <b class="tool-order">11</b>
+                                <input type="radio" name="tool" value="trivy">
+                                <i class="bi bi-box-seam"></i>
+                                <span>Trivy</span>
+                                <small>Container / Repo</small>
+                            </label>
+                            <label class="tool-option graybox" data-tool="sonarqube">
+                                <b class="tool-order">12</b>
+                                <input type="radio" name="tool" value="sonarqube">
+                                <i class="bi bi-code-slash"></i>
+                                <span>SonarQube</span>
+                                <small>Code Analysis</small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Fetch-only hint (OpenVAS / Wazuh) -->
+                    <div class="alert alert-info" id="fetchHint" style="display:none;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <span></span>
+                    </div>
+
+                    <!-- Wazuh Agent Selector (shown when tool=wazuh) -->
+                    <div class="mb-3" id="agentSelectGroup" style="display:none;">
+                        <label for="agent_id" class="form-label">Select Agent</label>
+                        <select class="form-select" id="agent_id" name="agent_id">
+                            <option value="">All active agents</option>
+                        </select>
+                        <div class="form-text">Choose a specific agent or leave empty to fetch from all active agents.</div>
+                    </div>
+
+                    <!-- OpenVAS Task Selector (shown when tool=openvas) -->
+                    <div class="mb-3" id="taskSelectGroup" style="display:none;">
+                        <label for="task_id" class="form-label">Select Task</label>
+                        <select class="form-select" id="task_id" name="task_id">
+                            <option value="">First available task</option>
+                        </select>
+                        <div class="form-text">Choose a specific scan task or leave empty to use the first available.</div>
+                    </div>
+
+                    <!-- File Upload (Trivy / SonarQube) -->
+                    <div class="mb-3" id="fileUploadGroup" style="display:none;">
+                        <label for="result_file" class="form-label" id="fileLabel">Upload Report File</label>
+                        <input type="file" class="form-control" id="result_file" name="result_file"
+                               accept=".json,.xml,.sarif">
+                        <div class="form-text" id="fileHint"></div>
+                        <div class="mt-2 p-2 rounded" style="background:rgba(255,255,255,0.04); font-size:0.8rem;" id="fileInstructions"></div>
+                    </div>
+
+                    <!-- Target input — label & placeholder change per tool -->
+                    <div class="mb-3" id="targetGroup">
+                        <label for="target_url" class="form-label" id="targetLabel">Target URL</label>
+                        <input type="text" class="form-control" id="target_url" name="target_url"
+                               placeholder="https://example.com" required>
+                        <div class="form-text" id="targetHint">The URL to scan for web vulnerabilities</div>
+                    </div>
+
+                    <div class="mb-3" id="targetNameGroup">
+                        <label for="target_name" class="form-label">Target Name (optional)</label>
+                        <input type="text" class="form-control" id="target_name" name="target_name"
+                               placeholder="My Application">
+                    </div>
+
+                    <!-- ZAP scan type (only visible when ZAP selected) -->
+                    <div class="mb-3" id="scanTypeGroup">
+                        <label for="scan_type" class="form-label">Scan Type</label>
+                        <select class="form-select" id="scan_type" name="scan_type">
+                            <option value="full">Full Scan (Spider + Active)</option>
+                            <option value="spider">Spider Only (Discovery)</option>
+                            <option value="active">Active Scan Only</option>
+                            <option value="ajax">Ajax Spider</option>
+                        </select>
+                        <div class="form-text">
+                            <strong>Full Scan</strong> runs spider discovery then active vulnerability testing.
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                            <i class="bi bi-play-circle" id="submitIcon"></i> <span id="submitText">Start Scan</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const toolConfigs = {
+        zap:       { label: 'Target URL',        placeholder: 'https://example.com',           hint: 'The URL to scan for web vulnerabilities', type: 'url',  showScanType: true,  showTarget: true,
+                     scanTypes: [
+                         {value:'full',   label:'Full Scan (Spider + Active)',   desc:'Spider discovery then active vulnerability testing'},
+                         {value:'spider', label:'Spider Only (Discovery)',        desc:'Crawl and map the application only'},
+                         {value:'active', label:'Active Scan Only',              desc:'Run active scan without spider'},
+                         {value:'ajax',   label:'Ajax Spider',                   desc:'JavaScript-aware crawling for SPAs'},
+                     ]},
+        trivy:     { showFileUpload: true, showScanType: false, showTarget: false,
+                     fileLabel: 'Trivy Report File (.json / .sarif)',
+                     fileHint: 'อัปโหลดผลจาก: trivy image nginx:latest -f json -o result.json',
+                     fileAccept: '.json,.sarif',
+                     fileInstructions: '💡 วิธีสร้างไฟล์:<br><code>trivy image &lt;image&gt; -f json -o result.json</code><br><code>trivy fs /path/to/repo -f json -o result.json</code><br><code>trivy image &lt;image&gt; -f sarif -o result.sarif</code>',
+                   },
+        testssl:   { label: 'Hostname or URL',   placeholder: 'example.com or https://example.com:443',      hint: 'Domain or host:port to check SSL/TLS configuration', type: 'text', showScanType: false, showTarget: true  },
+        sonarqube: { showFileUpload: true, showScanType: false, showTarget: false,
+                     fileLabel: 'SonarQube Report File (.json / .xml)',
+                     fileHint: 'อัปโหลดผลจาก SonarQube API export หรือ SARIF',
+                     fileAccept: '.json,.xml,.sarif',
+                     fileInstructions: '💡 วิธีสร้างไฟล์:<br><code>curl -u token: "http://sonar/api/issues/search?componentKeys=myproject" -o report.json</code><br>หรือ SARIF จาก sonar-scanner plugin',
+                   },
+        openvas:   { label: '', placeholder: '', hint: 'Fetch latest scan report from OpenVAS server (configured in Settings)', type: 'text', showScanType: false, showTarget: false },
+        wazuh:     { label: '', placeholder: '', hint: 'Fetch latest alerts from Wazuh SIEM (configured in Settings)', type: 'text', showScanType: false, showTarget: false },
+        nuclei:    { label: 'Target URL',        placeholder: 'https://example.com',           hint: 'URL to scan using Nuclei vulnerability templates (CVEs, misconfigs, panels)', type: 'url', showScanType: true, showTarget: true,
+                     scanTypes: [
+                         {value:'full',  label:'Full Scan (critical+high+medium+low)', desc:'All severity levels — most thorough'},
+                         {value:'quick', label:'Quick Scan (critical+high+medium)',    desc:'Skip low severity — faster'},
+                     ]},
+        sqlmap:    { label: 'Target URL', placeholder: 'https://example.com/page?id=1', hint: 'URL with parameters to test for SQL injection (include ?param=value for targeted scan)', type: 'url', showScanType: true, showTarget: true,
+                     scanTypes: [
+                         {value:'quick', label:'Quick Scan (level 1, risk 1)', desc:'Fast scan — tests GET/POST params at level 1, risk 1. Best starting point.'},
+                         {value:'full',  label:'Full Scan (level 3, crawl + forms)', desc:'Deeper scan — crawls 2 levels, tests HTML forms, level 3 risk 2.'},
+                         {value:'deep',  label:'Deep Scan (level 5, all techniques)', desc:'Thorough — all techniques, level 5 risk 3, crawl 3 levels. Slow.'},
+                     ]},
+        httpx:     { label: 'Target URL', placeholder: 'https://example.com', hint: 'URL to probe for HTTP security issues: missing headers, version disclosure, sensitive paths', type: 'url', showScanType: true, showTarget: true,
+                     scanTypes: [
+                         {value:'full',    label:'Full Probe (headers + path discovery)', desc:'Security headers + server fingerprint + sensitive path discovery (/.git, /.env, /admin, etc.)'},
+                         {value:'headers', label:'Headers Only (fast)',                   desc:'Check security headers and server version disclosure only — much faster'},
+                     ]},
+        nmap:      { label: 'Target (IP / Host / Range)', placeholder: '192.168.1.1  or  10.0.0.0/24  or  example.com', hint: 'IP address, hostname, or CIDR range to scan for open ports and services', type: 'text', showScanType: true, showTarget: true,
+                     scanTypes: [
+                         {value:'quick', label:'Quick Scan (top 100 ports)',              desc:'Fast scan of 100 most common ports with version detection (-F -sV)'},
+                         {value:'full',  label:'Full Scan (top 1000 ports + scripts)',    desc:'Default 1000 ports with NSE default scripts (-sC -sV)'},
+                         {value:'vuln',  label:'Vuln Scan (vulnerability NSE scripts)',   desc:'Run NSE vulnerability detection scripts against open ports (--script vuln)'},
+                     ]},
+        dirb:      { label: 'Target URL', placeholder: 'https://example.com', hint: 'Brute-force hidden directories and files using ffuf with DirBuster wordlists', type: 'url', showScanType: true, showTarget: true,
+                     scanTypes: [
+                         {value:'quick', label:'Quick Scan (small wordlist, no extensions)', desc:'~1k entries, no file extensions — fastest, good for initial recon'},
+                         {value:'full',  label:'Full Scan (common.txt + web extensions)',    desc:'~4.6k words + .php .html .asp .txt .bak extensions — recommended'},
+                         {value:'deep',  label:'Deep Scan (big.txt + all extensions)',       desc:'~20k words + 10 extensions — thorough but slow (10+ minutes)'},
+                     ]},
+        wpscan:    { label: 'WordPress URL', placeholder: 'https://example.com', hint: 'WordPress site URL — enumerates plugins, themes, users, and known vulnerabilities (requires WPScan API token for CVE data)', type: 'url', showScanType: true, showTarget: true,
+                     scanTypes: [
+                         {value:'quick', label:'Quick Scan (vulnerable plugins/themes only)', desc:'Enumerate only vulnerable plugins, themes, and interesting files — fastest'},
+                         {value:'full',  label:'Full Scan (plugins + themes + users)',         desc:'Vulnerable plugins + all themes + user enumeration (1–5 users) — recommended'},
+                         {value:'deep',  label:'Deep Scan (aggressive — all plugins + users)', desc:'All plugins/themes with aggressive detection + enumerate up to 10 users — thorough but slow'},
+                     ]},
+    };
+
+    const options = document.querySelectorAll('.tool-option');
+    const targetInput = document.getElementById('target_url');
+    const targetLabel = document.getElementById('targetLabel');
+    const targetHint  = document.getElementById('targetHint');
+    const targetGroup = document.getElementById('targetGroup');
+    const targetNameGroup = document.getElementById('targetNameGroup');
+    const scanTypeGroup = document.getElementById('scanTypeGroup');
+    const fetchHint = document.getElementById('fetchHint');
+    const agentSelectGroup = document.getElementById('agentSelectGroup');
+    const taskSelectGroup = document.getElementById('taskSelectGroup');
+    const agentSelect = document.getElementById('agent_id');
+    const taskSelect = document.getElementById('task_id');
+
+    var agentsLoaded = false;
+    var tasksLoaded = false;
+
+    function loadWazuhAgents() {
+        if (agentsLoaded) return;
+        agentSelect.innerHTML = '<option value="">Loading...</option>';
+        fetch('{% url "dashboard-api-wazuh-agents" %}')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                agentSelect.innerHTML = '<option value="">All active agents</option>';
+                (data.agents || []).forEach(function(a) {
+                    var opt = document.createElement('option');
+                    opt.value = a.id;
+                    var label = a.name || a.id;
+                    if (a.ip) label += ' (' + a.ip + ')';
+                    if (a.status) label += ' [' + a.status + ']';
+                    opt.textContent = label;
+                    agentSelect.appendChild(opt);
+                });
+                agentsLoaded = true;
+            })
+            .catch(function() {
+                agentSelect.innerHTML = '<option value="">Failed to load agents</option>';
+            });
+    }
+
+    function loadOpenvasTasks() {
+        if (tasksLoaded) return;
+        taskSelect.innerHTML = '<option value="">Loading...</option>';
+        fetch('{% url "dashboard-api-openvas-tasks" %}')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                taskSelect.innerHTML = '<option value="">First available task</option>';
+                (data.tasks || []).forEach(function(t) {
+                    var opt = document.createElement('option');
+                    opt.value = t.id;
+                    var label = t.name || t.id;
+                    if (t.status) label += ' [' + t.status + ']';
+                    opt.textContent = label;
+                    taskSelect.appendChild(opt);
+                });
+                tasksLoaded = true;
+            })
+            .catch(function() {
+                taskSelect.innerHTML = '<option value="">Failed to load tasks</option>';
+            });
+    }
+
+    var fileUploadGroup = document.getElementById('fileUploadGroup');
+    var fileInput = document.getElementById('result_file');
+    var fileLabelEl = document.getElementById('fileLabel');
+    var fileHintEl = document.getElementById('fileHint');
+    var fileInstructionsEl = document.getElementById('fileInstructions');
+
+    function selectTool(tool) {
+        options.forEach(function(opt) {
+            opt.classList.toggle('active', opt.dataset.tool === tool);
+        });
+        const cfg = toolConfigs[tool];
+        if (!cfg) return;
+
+        var submitText = document.getElementById('submitText');
+        var submitIcon = document.getElementById('submitIcon');
+        var scanTypeSelect = document.getElementById('scan_type');
+        var scanTypeDesc = scanTypeGroup.querySelector('.form-text');
+
+        // Reset all optional sections
+        agentSelectGroup.style.display = 'none';
+        taskSelectGroup.style.display = 'none';
+        fileUploadGroup.style.display = 'none';
+        fetchHint.style.display = 'none';
+        fileInput.required = false;
+
+        // ── File upload mode (Trivy / SonarQube) ──────────────────────────
+        if (cfg.showFileUpload) {
+            targetGroup.style.display = 'none';
+            targetNameGroup.style.display = '';
+            targetInput.required = false;
+            scanTypeGroup.style.display = 'none';
+
+            fileLabelEl.textContent = cfg.fileLabel || 'Upload Report File';
+            fileHintEl.textContent = cfg.fileHint || '';
+            fileInstructionsEl.innerHTML = cfg.fileInstructions || '';
+            fileInput.accept = cfg.fileAccept || '.json,.xml';
+            fileInput.required = true;
+            fileUploadGroup.style.display = '';
+
+            submitText.textContent = 'Import Report';
+            submitIcon.className = 'bi bi-upload';
+            return;
+        }
+
+        // ── URL input mode ─────────────────────────────────────────────────
+        if (cfg.label) targetLabel.textContent = cfg.label;
+        if (cfg.placeholder) targetInput.placeholder = cfg.placeholder;
+        if (cfg.type) targetInput.type = cfg.type;
+
+        // Scan type options
+        if (cfg.showScanType && cfg.scanTypes) {
+            scanTypeSelect.innerHTML = '';
+            cfg.scanTypes.forEach(function(st) {
+                var opt = document.createElement('option');
+                opt.value = st.value;
+                opt.textContent = st.label;
+                opt.dataset.desc = st.desc;
+                scanTypeSelect.appendChild(opt);
+            });
+            scanTypeDesc.textContent = cfg.scanTypes[0].desc;
+            scanTypeSelect.onchange = function() {
+                var sel = scanTypeSelect.options[scanTypeSelect.selectedIndex];
+                if (sel && sel.dataset.desc) scanTypeDesc.textContent = sel.dataset.desc;
+            };
+            scanTypeGroup.style.display = '';
+        } else {
+            scanTypeGroup.style.display = 'none';
+        }
+
+        if (cfg.showTarget) {
+            targetGroup.style.display = '';
+            targetNameGroup.style.display = '';
+            targetInput.required = true;
+            targetHint.textContent = cfg.hint || '';
+            submitText.textContent = 'Start Scan';
+            submitIcon.className = 'bi bi-play-circle';
+        } else {
+            targetGroup.style.display = 'none';
+            targetNameGroup.style.display = 'none';
+            targetInput.required = false;
+            fetchHint.style.display = '';
+            fetchHint.querySelector('span').textContent = cfg.hint || '';
+            submitText.textContent = 'Fetch Results';
+            submitIcon.className = 'bi bi-download';
+        }
+
+        if (tool === 'wazuh') {
+            agentSelectGroup.style.display = '';
+            loadWazuhAgents();
+        } else if (tool === 'openvas') {
+            taskSelectGroup.style.display = '';
+            loadOpenvasTasks();
+        }
+    }
+
+    options.forEach(function(opt) {
+        opt.addEventListener('click', function() {
+            selectTool(opt.dataset.tool);
+        });
+    });
+
+    // Pre-select tool from URL query parameter (?tool=openvas)
+    const params = new URLSearchParams(location.search);
+    const preselect = params.get('tool');
+    if (preselect && toolConfigs[preselect]) {
+        var radio = document.querySelector('input[name="tool"][value="' + preselect + '"]');
+        if (radio) radio.checked = true;
+        selectTool(preselect);
+    }
+
+    document.getElementById('scanForm').addEventListener('submit', function() {
+        var btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Starting scan...';
+    });
+})();
+</script>
+{% endblock %}

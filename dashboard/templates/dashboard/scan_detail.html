@@ -1,0 +1,564 @@
+{% extends "dashboard/base.html" %}
+{% load thai_date %}
+{% block title %}Scan: {{ scan.target.name }} - ZAP Reports{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard-index' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'dashboard-report-builder' %}?target={{ scan.target.id }}">Reports</a></li>
+        <li class="breadcrumb-item active">{{ scan.target.name|truncatechars:40 }}</li>
+    </ol>
+</nav>
+
+<div class="dashboard-hero mb-4">
+    <div class="row align-items-center g-3">
+        <div class="col-lg-8">
+            <p class="eyebrow mb-2">Scan Result</p>
+            <h2 class="mb-1">{{ scan.target.name }}</h2>
+            <p class="text-muted mb-0">{{ scan.target.url }}</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            {% if scan.status == 'running' %}
+            <span class="badge bg-primary fs-6 p-2" id="scanStatus">
+                <span class="spinner-border spinner-border-sm"></span> Scanning...
+            </span>
+            {% elif scan.status == 'completed' %}
+            <span class="badge bg-success fs-6 p-2">Completed</span>
+            {% elif scan.status == 'failed' %}
+            <span class="badge bg-danger fs-6 p-2">Failed</span>
+            {% else %}
+            <span class="badge bg-warning fs-6 p-2">Pending</span>
+            {% endif %}
+            <div class="mt-2">
+                {% if scan.status == 'running' or scan.status == 'pending' %}
+                <form method="post" action="{% url 'dashboard-scan-stop' scan.id %}" class="d-inline" id="stopForm">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-warning" id="stopBtn"
+                            onclick="this.disabled=true; this.innerHTML='<span class=\'spinner-border spinner-border-sm\'></span> Stopping...'; this.form.submit();">
+                        <i class="bi bi-stop-circle"></i> Stop Scan
+                    </button>
+                </form>
+                {% endif %}
+                <a href="{% url 'dashboard-report-builder' %}?target={{ scan.target.id }}"
+                   class="btn btn-sm btn-outline-info">
+                    <i class="bi bi-file-earmark-text"></i> Generate Report
+                </a>
+                {% if organizations|length > 1 %}
+                <div class="btn-group">
+                    <a href="{% url 'reports-pdf' scan.id %}" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-file-pdf"></i> PDF
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-danger dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="visually-hidden">เลือกหน่วยงาน</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><h6 class="dropdown-header">เลือกหน่วยงาน</h6></li>
+                        {% for org in organizations %}
+                        <li>
+                            <a class="dropdown-item" href="{% url 'reports-pdf' scan.id %}?org_id={{ org.pk }}" target="_blank">
+                                {% if org.is_default %}<i class="bi bi-star-fill text-warning me-1"></i>{% endif %}{{ org.name_th }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% else %}
+                <a href="{% url 'reports-pdf' scan.id %}" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-file-pdf"></i> PDF
+                </a>
+                {% endif %}
+                <a href="{% url 'reports-excel' scan.id %}" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-file-earmark-excel"></i> Excel
+                </a>
+                {% if scan.status == 'completed' and openai_configured %}
+                <form method="post" action="{% url 'dashboard-scan-ai-analyze' scan.id %}" class="d-inline" id="aiForm">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-info" id="aiBtn"
+                            onclick="this.disabled=true; this.innerHTML='<span class=\'spinner-border spinner-border-sm\'></span> Analyzing...'; this.form.submit();">
+                        <i class="bi bi-stars"></i> {% if has_ai %}Re-analyze{% else %}AI Analyze{% endif %}
+                    </button>
+                </form>
+                {% endif %}
+                {% if scan.status == 'completed' %}
+                <form method="post" action="{% url 'dashboard-scan-exploit-check' scan.id %}" class="d-inline" id="exploitForm">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger" id="exploitBtn"
+                            onclick="this.disabled=true; this.innerHTML='<span class=\'spinner-border spinner-border-sm\'></span> Checking...'; this.form.submit();">
+                        <i class="bi bi-bug"></i> Exploit Check
+                    </button>
+                </form>
+                {% endif %}
+                <a href="{% url 'dashboard-scan-delete' scan.id %}" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-trash"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scan Info -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card text-center p-3" data-glow="danger">
+            <div class="fs-2 fw-bold" style="color: var(--danger)">{{ scan.high_count }}</div>
+            <div class="text-muted small">High</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center p-3" data-glow="medium">
+            <div class="fs-2 fw-bold" style="color: var(--medium)">{{ scan.medium_count }}</div>
+            <div class="text-muted small">Medium</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center p-3" data-glow="low">
+            <div class="fs-2 fw-bold" style="color: var(--low)">{{ scan.low_count }}</div>
+            <div class="text-muted small">Low</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center p-3" data-glow="info">
+            <div class="fs-2 fw-bold" style="color: var(--info)">{{ scan.info_count }}</div>
+            <div class="text-muted small">Info</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card p-3">
+            <h6><i class="bi bi-info-circle"></i> Scan Details</h6>
+            <table class="table table-sm table-borderless mb-0">
+                <tr><td class="text-muted">Type</td><td>{{ scan.get_scan_type_display }}</td></tr>
+                <tr><td class="text-muted">Started</td><td>{{ scan.started_at|thaidate:"j M Y H:i" }}</td></tr>
+                <tr><td class="text-muted">Completed</td><td>{{ scan.completed_at|thaidate:"j M Y H:i"|default:"-" }}</td></tr>
+                <tr><td class="text-muted">Risk Score</td><td><strong>{{ scan.risk_score|floatformat:1 }}</strong></td></tr>
+                <tr><td class="text-muted">Total Alerts</td><td>{{ scan.total_alerts }}</td></tr>
+            </table>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3">
+            <h6><i class="bi bi-pie-chart"></i> Severity Distribution</h6>
+            <canvas id="severityPie" height="200"></canvas>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3">
+            <h6><i class="bi bi-bar-chart"></i> Top Vulnerabilities</h6>
+            <canvas id="topVulnsBar" height="200"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Spider URL Discovery Panel (Spider Only scans) -->
+{% if scan.scan_type == 'spider' and scan.status == 'completed' %}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span class="fw-semibold">
+            <i class="bi bi-diagram-3 me-1" style="color:var(--accent)"></i>
+            Spider Discovery Results —
+            {% if spider_urls %}
+            <span class="badge bg-primary ms-1">{{ spider_urls|length }} URLs Found</span>
+            {% else %}
+            <span class="badge bg-secondary ms-1">URL list not stored</span>
+            {% endif %}
+        </span>
+        <div class="d-flex gap-2 align-items-center">
+            {% if spider_urls %}
+            <input type="text" id="urlSearch" class="form-control form-control-sm"
+                   placeholder="&#128269; Filter URL…" style="width:200px;"
+                   oninput="filterSpiderUrls(this.value)">
+            {% endif %}
+            <form method="post" action="{% url 'dashboard-scan-new' %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="tool" value="zap">
+                <input type="hidden" name="scan_type" value="active">
+                <input type="hidden" name="target_url" value="{{ scan.target.url }}">
+                <input type="hidden" name="target_name" value="{{ scan.target.name }}">
+                <button type="submit" class="btn btn-sm btn-danger"
+                        onclick="return confirm('เริ่ม Active Scan บน {{ scan.target.url }}?')">
+                    <i class="bi bi-shield-exclamation me-1"></i>
+                    Run Active Scan
+                </button>
+            </form>
+        </div>
+    </div>
+    {% if spider_urls %}
+    <div class="card-body p-0">
+        <div style="max-height:420px; overflow-y:auto;">
+            <table class="table table-sm table-hover mb-0" id="spiderUrlTable">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th style="width:50px">#</th>
+                        <th>URL</th>
+                        <th style="width:80px">Method</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in spider_urls %}
+                    <tr class="spider-url-row">
+                        <td class="text-muted small">{{ forloop.counter }}</td>
+                        {% if entry|stringformat:"s" == entry %}
+                            <td class="spider-url-cell" style="word-break:break-all;font-size:.8rem;">
+                                <a href="{{ entry }}" target="_blank" rel="noopener" class="text-decoration-none">
+                                    {{ entry }}
+                                </a>
+                            </td>
+                            <td><span class="badge bg-secondary">GET</span></td>
+                        {% else %}
+                            <td class="spider-url-cell" style="word-break:break-all;font-size:.8rem;">
+                                <a href="{{ entry.url }}" target="_blank" rel="noopener" class="text-decoration-none">
+                                    {{ entry.url }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge {% if entry.method == 'POST' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                    {{ entry.method|default:"GET" }}
+                                </span>
+                            </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="px-3 py-2 text-muted small border-top">
+            Spider crawl เสร็จแล้ว — กด <strong>Run Active Scan</strong> เพื่อทดสอบ vulnerability บน URL เหล่านี้
+        </div>
+    </div>
+    {% else %}
+    <div class="card-body">
+        <p class="text-muted small mb-0">
+            <i class="bi bi-info-circle me-1"></i>
+            ไม่มีข้อมูล URL list (scan เก่า) — กด <strong>Run Active Scan</strong> เพื่อ scan vulnerability บน <code>{{ scan.target.url }}</code> ได้เลย
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function filterSpiderUrls(q) {
+    q = q.toLowerCase();
+    document.querySelectorAll('#spiderUrlTable .spider-url-row').forEach(function(row) {
+        var cell = row.querySelector('.spider-url-cell');
+        row.style.display = (!q || (cell && cell.textContent.toLowerCase().includes(q))) ? '' : 'none';
+    });
+}
+</script>
+{% endif %}
+
+<!-- Alerts Grouped -->
+<div class="card findings-card">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span class="fw-semibold">
+            <i class="bi bi-exclamation-triangle me-1" style="color:var(--medium)"></i>
+            Findings —
+            <span style="color:var(--danger)">High: {{ scan.high_count }}</span>,
+            <span style="color:var(--medium)">Medium: {{ scan.medium_count }}</span>
+            <span class="text-muted small ms-2">
+                · Low: {{ scan.low_count }} · Info: {{ scan.info_count }}
+            </span>
+            <span class="badge bg-secondary ms-2">{{ grouped_alerts|length }} unique issues</span>
+        </span>
+        <div class="d-flex gap-2 align-items-center findings-controls">
+            <input type="text" id="alertSearch" class="form-control form-control-sm"
+                   placeholder="&#128269; Search…" style="width:150px;">
+            <select id="riskFilter" class="form-select form-select-sm" style="width:110px;">
+                <option value="">All</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary" id="expandAll">Expand All</button>
+        </div>
+    </div>
+
+    <div class="accordion accordion-flush" id="alertsAccordion">
+        {% for g in grouped_alerts %}
+        <div class="accordion-item alert-group sev-{{ g.severity|lower }}" data-severity="{{ g.severity|lower }}">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#grp{{ forloop.counter }}">
+                    <div class="d-flex align-items-center gap-2 w-100 flex-wrap">
+                        <span class="badge severity-badge-{{ g.severity|lower }} flex-shrink-0"
+                              style="min-width:62px;text-align:center;">{{ g.severity }}</span>
+                        <span class="flex-grow-1" style="font-size:.875rem;font-weight:500;line-height:1.4;">
+                            {{ g.name }}
+                        </span>
+                        <span class="d-flex gap-1 flex-shrink-0 finding-meta-badges flex-wrap">
+                            {% if g.cve_ids %}
+                            {% for cve in g.cve_ids %}
+                            <span class="badge cve-badge-header">{{ cve }}</span>
+                            {% endfor %}
+                            {% if g.cwe_id %}
+                            <span class="badge cwe-badge" style="opacity:.7;font-size:.65rem;" title="Root Cause">CWE-{{ g.cwe_id }}</span>
+                            {% endif %}
+                            {% else %}
+                            {% if g.cwe_id %}
+                            <span class="badge cwe-badge">CWE-{{ g.cwe_id }}</span>
+                            {% endif %}
+                            {% endif %}
+                            {% if g.in_cisa_kev %}
+                            <span class="badge exploit-kev-badge">&#128308; CISA KEV</span>
+                            {% elif g.has_public_exploit %}
+                            <span class="badge exploit-badge">&#9888; Public Exploit</span>
+                            {% endif %}
+                            {% if g.owasp_category %}
+                            <span class="badge owasp-badge">{{ g.owasp_category }}</span>
+                            {% endif %}
+                            <span class="badge cvss-badge">CVSS {{ g.cvss_score }}</span>
+                            <span class="badge url-count-badge">{{ g.urls|length }} URL{% if g.urls|length != 1 %}s{% endif %}</span>
+                        </span>
+                    </div>
+                </button>
+            </h2>
+            <div id="grp{{ forloop.counter }}" class="accordion-collapse collapse">
+                <div class="accordion-body">
+
+                    {% if g.cvss_vector or g.wasc_id %}
+                    <div class="d-flex flex-wrap gap-3 mb-2" style="font-size:.77rem;color:var(--muted);">
+                        {% if g.cvss_vector %}<span><i class="bi bi-shield me-1"></i>{{ g.cvss_vector }}</span>{% endif %}
+                        {% if g.wasc_id %}<span>WASC-{{ g.wasc_id }}</span>{% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if g.description %}
+                    <p class="mb-2"><strong>Description:</strong> {{ g.description|truncatechars:600 }}</p>
+                    {% endif %}
+
+                    {% if g.solution %}
+                    <p class="mb-2"><strong>Solution:</strong> {{ g.solution|truncatechars:400 }}</p>
+                    {% endif %}
+
+                    {% if g.evidence %}
+                    <p class="mb-2"><strong>Evidence:</strong>
+                        <code style="font-size:.75rem;color:#adc8e8;">{{ g.evidence|truncatechars:200 }}</code>
+                    </p>
+                    {% endif %}
+
+                    {% if g.url_entries %}
+                    <div class="mt-2">
+                        <strong>Affected URLs ({{ g.url_entries|length }}):</strong>
+                        <ul class="list-unstyled mt-1 mb-0 finding-urls">
+                            {% for entry in g.url_entries %}
+                            <li class="d-flex align-items-start gap-2 flex-wrap">
+                                <span style="word-break:break-all;font-size:.82rem;">{{ entry.url }}</span>
+                                {% if entry.param %}
+                                <span class="badge param-badge flex-shrink-0" title="Parameter detected by ZAP">
+                                    <i class="bi bi-terminal me-1"></i>{{ entry.param }}
+                                </span>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    {% if g.cve_ids %}
+                    <div class="cve-panel mt-3" id="cve-panel-{{ forloop.counter }}">
+                        <div class="cve-panel-header">
+                            <i class="bi bi-shield-exclamation me-1"></i> CVE References
+                        </div>
+                        <div class="cve-panel-body">
+                            {% for cve in g.cve_ids %}
+                            <a href="https://nvd.nist.gov/vuln/detail/{{ cve }}"
+                               target="_blank" rel="noopener"
+                               class="badge cve-badge-link me-1 mb-1">{{ cve }}</a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% elif g.cwe_id %}
+                    <div class="cve-panel mt-3" id="cve-panel-{{ forloop.counter }}">
+                        <div class="cve-panel-header">
+                            <i class="bi bi-shield-exclamation me-1"></i> Related CVEs (NVD lookup for CWE-{{ g.cwe_id }})
+                        </div>
+                        <div class="cve-panel-body" id="cve-body-{{ forloop.counter }}"
+                             data-auto-cwe="{{ g.cwe_id }}">
+                            <span class="text-muted" style="font-size:.8rem;">
+                                <span class="spinner-border spinner-border-sm me-1"></span>กำลังค้นหา CVE…
+                            </span>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if g.has_public_exploit %}
+                    <div class="exploit-panel mt-3">
+                        <div class="exploit-panel-header">
+                            {% if g.in_cisa_kev %}
+                            <i class="bi bi-exclamation-octagon-fill me-1"></i>
+                            <span style="color:#ff4444;">CISA KEV — Actively Exploited in the Wild</span>
+                            {% else %}
+                            <i class="bi bi-bug-fill me-1"></i>
+                            <span>Public Exploit Available</span>
+                            {% endif %}
+                        </div>
+                        <div class="exploit-panel-body">
+                            {% for ref in g.exploit_refs %}
+                            <div class="exploit-ref-item">
+                                {% if 'CISA KEV' in ref %}
+                                <i class="bi bi-shield-exclamation me-1" style="color:#ff4444;"></i>
+                                {% else %}
+                                <i class="bi bi-bug me-1" style="color:#fd7e14;"></i>
+                                {% endif %}
+                                {{ ref }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if g.ai %}
+                    <div class="ai-analysis-box mt-3">
+                        <div class="ai-analysis-header">
+                            <i class="bi bi-stars me-1"></i> AI Analysis
+                            <span class="ai-model-badge">{{ g.ai.ai_model }}</span>
+                        </div>
+                        <div class="ai-analysis-body">
+                            <div class="ai-section">
+                                <div class="ai-label"><i class="bi bi-cpu me-1"></i>Technical Explanation</div>
+                                <p class="ai-text">{{ g.ai.technical_explanation }}</p>
+                            </div>
+                            <div class="ai-section">
+                                <div class="ai-label"><i class="bi bi-building me-1"></i>Business Impact</div>
+                                <p class="ai-text">{{ g.ai.business_impact }}</p>
+                            </div>
+                            <div class="ai-section">
+                                <div class="ai-label"><i class="bi bi-patch-check me-1"></i>Remediation</div>
+                                <p class="ai-text" style="white-space: pre-line;">{{ g.ai.remediation }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="p-4 text-center" style="color:var(--muted);">No High or Medium alerts found.</div>
+        {% endfor %}
+    </div>
+
+    {% if scan.low_count or scan.info_count %}
+    <div class="findings-footer-row">
+        <i class="bi bi-info-circle me-1"></i>
+        ไม่แสดงรายละเอียด —
+        <strong style="color:var(--low)">Low: {{ scan.low_count }}</strong> รายการ,
+        <strong style="color:var(--info)">Info: {{ scan.info_count }}</strong> รายการ
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Severity pie chart
+    renderSeverityPie('severityPie', {{ severity_data|safe }});
+
+    // Top vulns bar chart
+    renderTopVulnsBar('topVulnsBar', {{ top_vulns_json|safe }});
+
+    function filterAlerts() {
+        const sev = document.getElementById('riskFilter').value.toLowerCase();
+        const q = document.getElementById('alertSearch').value.toLowerCase();
+        document.querySelectorAll('#alertsAccordion .alert-group').forEach(function(item) {
+            const matchSev = !sev || item.dataset.severity === sev;
+            const matchQ = !q || item.innerText.toLowerCase().includes(q);
+            item.style.display = (matchSev && matchQ) ? '' : 'none';
+        });
+    }
+    document.getElementById('riskFilter').addEventListener('change', filterAlerts);
+    document.getElementById('alertSearch').addEventListener('input', filterAlerts);
+
+    document.getElementById('expandAll').addEventListener('click', function() {
+        const items = document.querySelectorAll('#alertsAccordion .accordion-collapse');
+        const anyOpen = Array.from(items).some(el => el.classList.contains('show'));
+        items.forEach(function(el) {
+            bootstrap.Collapse.getOrCreateInstance(el)[anyOpen ? 'hide' : 'show']();
+        });
+        this.textContent = anyOpen ? 'Expand All' : 'Collapse All';
+    });
+
+    // ── Auto CVE lookup — fires when accordion opens ──────────────────────
+    function severityColor(sev) {
+        const s = (sev || '').toUpperCase();
+        if (s === 'CRITICAL') return '#c77dff';
+        if (s === 'HIGH')     return '#ff4d57';
+        if (s === 'MEDIUM')   return '#ff8c1a';
+        if (s === 'LOW')      return '#ffcc00';
+        return '#7e8ba4';
+    }
+
+    function fetchCvePanel(bodyEl) {
+        const cwe = bodyEl.dataset.autoCwe;
+        if (!cwe || bodyEl.dataset.loaded) return;
+        bodyEl.dataset.loaded = '1';
+
+        fetch('/api/cwe-cves/?cwe=' + encodeURIComponent(cwe))
+            .then(r => r.json())
+            .then(function(data) {
+                const cves = data.cves || [];
+                if (!cves.length) {
+                    bodyEl.innerHTML = '<span class="text-muted" style="font-size:.8rem;">ไม่พบ CVE ที่เกี่ยวข้องกับ CWE-' + cwe + ' ใน NVD</span>';
+                    return;
+                }
+                let html = '<table class="cve-result-table">'
+                    + '<thead><tr><th>CVE ID</th><th>CVSS</th><th>Severity</th><th>Published</th><th>Description</th></tr></thead><tbody>';
+                cves.forEach(function(c) {
+                    const color = severityColor(c.severity);
+                    html += '<tr>'
+                        + '<td><a href="' + c.nvd_url + '" target="_blank" rel="noopener">' + c.id + '</a></td>'
+                        + '<td><strong>' + (c.cvss || '—') + '</strong></td>'
+                        + '<td><span style="color:' + color + ';font-weight:600;">' + (c.severity || '—') + '</span></td>'
+                        + '<td style="white-space:nowrap;">' + (c.published || '—') + '</td>'
+                        + '<td style="max-width:340px;">' + (c.description || '').substring(0, 200) + (c.description && c.description.length > 200 ? '…' : '') + '</td>'
+                        + '</tr>';
+                });
+                html += '</tbody></table>';
+                bodyEl.innerHTML = html;
+            })
+            .catch(function() {
+                bodyEl.dataset.loaded = '';  // allow retry
+                bodyEl.innerHTML = '<span class="text-danger" style="font-size:.8rem;">เชื่อมต่อ NVD API ไม่สำเร็จ — <a href="#" class="cve-retry-link">ลองอีกครั้ง</a></span>';
+            });
+    }
+
+    // Trigger fetch when accordion item opens
+    document.querySelectorAll('#alertsAccordion .accordion-collapse').forEach(function(collapse) {
+        collapse.addEventListener('show.bs.collapse', function() {
+            const bodyEl = this.querySelector('[data-auto-cwe]');
+            if (bodyEl) fetchCvePanel(bodyEl);
+        });
+    });
+
+    // Retry link
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest('.cve-retry-link');
+        if (!link) return;
+        e.preventDefault();
+        const bodyEl = link.closest('[data-auto-cwe]');
+        if (bodyEl) {
+            bodyEl.dataset.loaded = '';
+            bodyEl.innerHTML = '<span class="text-muted" style="font-size:.8rem;"><span class="spinner-border spinner-border-sm me-1"></span>กำลังค้นหา CVE…</span>';
+            fetchCvePanel(bodyEl);
+        }
+    });
+
+    {% if scan.status == 'running' or scan.status == 'pending' %}
+    // Poll scan status
+    const interval = setInterval(function() {
+        fetch('{% url "dashboard-scan-status" scan.id %}')
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'completed' || data.status === 'failed') {
+                    clearInterval(interval);
+                    location.reload();
+                }
+            });
+    }, 5000);
+    {% endif %}
+});
+</script>
+{% endblock %}

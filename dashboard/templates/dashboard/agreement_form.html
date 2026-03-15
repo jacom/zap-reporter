@@ -1,0 +1,413 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{% if agreement %}แก้ไขเอกสาร{% else %}สร้างเอกสารใหม่{% endif %} — VA Platform{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-file-earmark-lock2 me-2"></i>
+            {% if agreement %}แก้ไขเอกสาร{% else %}สร้างเอกสารใหม่{% endif %}
+        </h2>
+        <p class="text-muted mb-0">ขอบเขตงาน (SOW) + หนังสือข้อตกลงการรักษาความลับ (NDA)</p>
+    </div>
+    <a href="{% url 'dashboard-agreement-list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>กลับ
+    </a>
+</div>
+
+<form method="post" id="agreementForm">
+    {% csrf_token %}
+    {# ค่า action ถูกกำหนดโดย JS ก่อน submit #}
+    <input type="hidden" name="action" id="hiddenAction" value="save">
+
+    <!-- ══ ข้อมูลเอกสาร ══ -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold bg-dark text-white">
+            <i class="bi bi-hash me-1"></i>ข้อมูลเอกสาร
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">เลขที่เอกสาร</label>
+                    <input type="text" name="document_number" class="form-control"
+                           value="{{ agreement.document_number|default:'' }}"
+                           placeholder="เช่น PT-2568-001">
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold">รูปแบบการทดสอบ</label>
+                    <input type="text" name="test_type" class="form-control"
+                           value="{{ agreement.test_type|default:'Black Box Penetration Testing (Zero-knowledge)' }}">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ คู่สัญญา ══ -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold bg-dark text-white">
+            <i class="bi bi-people me-1"></i>คู่สัญญา
+        </div>
+        <div class="card-body">
+
+            <h6 class="fw-bold mb-3 border-bottom pb-2">ผู้อนุญาต / เจ้าของระบบ</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">ชื่อองค์กร (ภาษาไทย) <span class="text-danger">*</span></label>
+                    <input type="text" name="client_name_th" class="form-control" required
+                           value="{{ agreement.client_name_th|default:'' }}"
+                           placeholder="เช่น โรงพยาบาลสมเด็จพระยุพราชสว่างแดนดิน">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">ชื่อองค์กร (English)</label>
+                    <input type="text" name="client_name_en" class="form-control"
+                           value="{{ agreement.client_name_en|default:'' }}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">ที่อยู่ <small class="text-muted">(ใช้ใน "ทำที่" ของ NDA)</small></label>
+                    <textarea name="client_address" class="form-control" rows="2">{{ agreement.client_address|default:'' }}</textarea>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">ผู้ติดต่อ</label>
+                    <input type="text" name="client_contact" class="form-control"
+                           value="{{ agreement.client_contact|default:'' }}"
+                           placeholder="ชื่อ เบอร์โทร / อีเมล">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">ชื่อผู้ลงนาม</label>
+                    <input type="text" name="client_signer_name" class="form-control"
+                           value="{{ agreement.client_signer_name|default:'' }}"
+                           placeholder="ชื่อ-นามสกุล">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">ตำแหน่ง</label>
+                    <input type="text" name="client_signer_title" class="form-control"
+                           value="{{ agreement.client_signer_title|default:'' }}"
+                           placeholder="เช่น ผู้อำนวยการ">
+                </div>
+            </div>
+
+            <h6 class="fw-bold mb-3 border-bottom pb-2">ผู้รับอนุญาต / ทีมทดสอบ</h6>
+
+            {% if organizations %}
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-building me-1"></i>หน่วยงาน
+                        <small class="text-muted fw-normal">(เลือกเพื่อ auto-fill และใช้โลโก้ใน PDF)</small>
+                    </label>
+                    <select id="orgSelector" name="org_id" class="form-select">
+                        <option value="">— เลือกหน่วยงาน —</option>
+                        {% for o in organizations %}
+                        <option value="{{ o.pk }}"
+                                data-name-th="{{ o.name_th }}"
+                                data-name-en="{{ o.name_en }}"
+                                data-approver-name="{{ o.approver_name }}"
+                                data-approver-title="{{ o.approver_title }}"
+                                {% if agreement.org_id == o.pk %}selected{% endif %}>
+                            {% if o.is_default %}★ {% endif %}{{ o.name_th }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">ชื่อบริษัท / หน่วยงาน (ไทย)</label>
+                    <input type="text" name="tester_company_th" id="testerNameTh" class="form-control"
+                           value="{{ agreement.tester_company_th|default:org.name_th }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">ชื่อบริษัท / หน่วยงาน (English)</label>
+                    <input type="text" name="tester_company_en" id="testerNameEn" class="form-control"
+                           value="{{ agreement.tester_company_en|default:org.name_en }}">
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">ชื่อผู้ลงนาม <small class="text-muted">(ผู้รับข้อมูล คนที่ 1)</small></label>
+                    <input type="text" name="tester_signer_name" id="testerSignerName" class="form-control"
+                           value="{{ agreement.tester_signer_name|default:org.approver_name }}"
+                           placeholder="ชื่อ-นามสกุล">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">ตำแหน่ง</label>
+                    <input type="text" name="tester_signer_title" id="testerSignerTitle" class="form-control"
+                           value="{{ agreement.tester_signer_title|default:org.approver_title }}"
+                           placeholder="เช่น หัวหน้าทีมทดสอบ">
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">ทีมงาน <small class="text-muted">(หนึ่งคนต่อบรรทัด — แสดงในส่วนหัว SOW)</small></label>
+                    <textarea name="team_members" class="form-control" rows="3"
+                              placeholder="นาย ก ข ค — Penetration Tester&#10;นาง ง จ ฉ — Project Lead">{{ agreement.team_members|default:'' }}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ ช่วงเวลาการปฏิบัติงาน ══ -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold bg-dark text-white">
+            <i class="bi bi-calendar-range me-1"></i>ช่วงเวลาการปฏิบัติงาน (Period of Performance)
+        </div>
+        <div class="card-body">
+
+            <p class="text-muted small mb-3">
+                กรอกแต่ละวันที่ทดสอบ — รองรับช่วงกลางคืนที่ข้ามวัน
+                วันที่แสดงใน PDF เป็น พ.ศ. อัตโนมัติ
+            </p>
+
+            <div class="table-responsive mb-2">
+                <table class="table table-bordered align-middle mb-0" id="periodsTable">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th style="width:28%">วันที่เริ่มต้น</th>
+                            <th style="width:16%">เวลาเริ่ม</th>
+                            <th style="width:28%">วันที่สิ้นสุด</th>
+                            <th style="width:16%">เวลาสิ้นสุด</th>
+                            <th style="width:6%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="periodsBody">
+
+                        {% if agreement and agreement.test_periods %}
+                            {% for p in agreement.test_periods %}
+                            <tr class="period-row">
+                                <td>
+                                    <input type="date" name="period_date_from" class="form-control form-control-sm date-input"
+                                           value="{{ p.date_from }}">
+                                    <small class="be-display text-muted"></small>
+                                </td>
+                                <td>
+                                    <input type="time" name="period_time_from" class="form-control form-control-sm"
+                                           value="{{ p.time_from }}">
+                                </td>
+                                <td>
+                                    <input type="date" name="period_date_to" class="form-control form-control-sm date-input"
+                                           value="{{ p.date_to }}">
+                                    <small class="be-display text-muted"></small>
+                                </td>
+                                <td>
+                                    <input type="time" name="period_time_to" class="form-control form-control-sm"
+                                           value="{{ p.time_to }}">
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger remove-row">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            {# แถวเปล่าเริ่มต้น #}
+                            <tr class="period-row">
+                                <td>
+                                    <input type="date" name="period_date_from" class="form-control form-control-sm date-input">
+                                    <small class="be-display text-muted"></small>
+                                </td>
+                                <td>
+                                    <input type="time" name="period_time_from" class="form-control form-control-sm" value="20:00">
+                                </td>
+                                <td>
+                                    <input type="date" name="period_date_to" class="form-control form-control-sm date-input">
+                                    <small class="be-display text-muted"></small>
+                                </td>
+                                <td>
+                                    <input type="time" name="period_time_to" class="form-control form-control-sm" value="23:59">
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger remove-row">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endif %}
+
+                    </tbody>
+                </table>
+            </div>
+
+            <button type="button" id="addPeriodBtn" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-plus-lg me-1"></i>เพิ่มช่วงเวลา
+            </button>
+
+            <div class="mt-3">
+                <label class="form-label fw-semibold">หมายเหตุ / เหตุผลการกำหนดช่วงเวลา</label>
+                <textarea name="scope_description" class="form-control" rows="2"
+                          placeholder="เช่น เพื่อป้องกันผลกระทบต่อระบบในช่วงเวลาที่มีการให้บริการหนาแน่น">{{ agreement.scope_description|default:'' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ ขอบเขตทางเทคนิค ══ -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold bg-dark text-white">
+            <i class="bi bi-crosshair me-1"></i>ขอบเขตทางเทคนิค (Technical Scope)
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label fw-semibold">ระบบ / เป้าหมายที่ทดสอบ <small class="text-muted">(หนึ่งรายการต่อบรรทัด)</small></label>
+                    <textarea name="target_systems" class="form-control font-monospace" rows="5"
+                              placeholder="Public Facing Assets: เว็บไซต์&#10;External Network Interface: Public IP Address ทั้งหมด&#10;Remote Access Points: VPN, Remote Desktop&#10;Internal System (via Pivot): ระบบภายใน">{{ agreement.target_systems|default:'' }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">ระบบ / บริการที่ไม่อยู่ในขอบเขต</label>
+                    <textarea name="out_of_scope" class="form-control" rows="2"
+                              placeholder="ระบุสิ่งที่ไม่รวมอยู่ในการทดสอบ">{{ agreement.out_of_scope|default:'' }}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ Methodology ══ -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold bg-dark text-white">
+            <i class="bi bi-list-ol me-1"></i>วิธีการดำเนินงาน (Methodology)
+            <small class="fw-normal ms-1">(หนึ่งขั้นตอนต่อบรรทัด)</small>
+        </div>
+        <div class="card-body">
+            <textarea name="methodology" class="form-control" rows="5"
+                      placeholder="Reconnaissance: การรวบรวมข้อมูลจากแหล่งภายนอก (OSINT)&#10;Vulnerability Assessment: การสแกนหาช่องโหว่&#10;Exploitation: การทดลองบุกรุกเพื่อยืนยันช่องโหว่&#10;Reporting: การสรุปผลและรายงาน">{{ agreement.methodology|default:'' }}</textarea>
+        </div>
+    </div>
+
+    <!-- ══ Rules of Engagement ══ -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold bg-dark text-white">
+            <i class="bi bi-shield-check me-1"></i>ข้อตกลงและเงื่อนไขการทดสอบ (Rules of Engagement)
+            <small class="fw-normal ms-1">(หนึ่งรายการต่อบรรทัด)</small>
+        </div>
+        <div class="card-body">
+            <textarea name="rules_of_engagement" class="form-control" rows="4"
+                      placeholder="จุดสิ้นสุดการทดสอบ: หากเข้าถึงสิทธิ์ Root/Admin ให้หยุดและบันทึกหลักฐานทันที&#10;การแจ้งเตือนฉุกเฉิน: หากระบบมีอาการหน่วงให้แจ้งทีม IT ทันที&#10;ห้ามทำ DoS: ห้ามทดสอบวิธีที่เจตนาทำให้ระบบล่มโดยเด็ดขาด">{{ agreement.rules_of_engagement|default:'' }}</textarea>
+        </div>
+    </div>
+
+    <!-- ══ Deliverables ══ -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold bg-dark text-white">
+            <i class="bi bi-box-arrow-up-right me-1"></i>ผลผลิตที่ต้องส่งมอบ (Deliverables)
+            <small class="fw-normal ms-1">(หนึ่งรายการต่อบรรทัด)</small>
+        </div>
+        <div class="card-body">
+            <textarea name="deliverables" class="form-control" rows="4"
+                      placeholder="Log Summary: รายงานสรุปกิจกรรมการเจาะระบบ&#10;Technical Report: รายงานผลการทดสอบฉบับสมบูรณ์&#10;Remediation Workshop: การสาธิตและสอนวิธีการปิดช่องโหว่ที่พบจริง">{{ agreement.deliverables|default:'' }}</textarea>
+        </div>
+    </div>
+
+    <!-- ══ NDA ══ -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold bg-dark text-white">
+            <i class="bi bi-file-lock me-1"></i>หนังสือข้อตกลงการรักษาความลับ (NDA)
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">ระยะเวลาการรักษาความลับ (ปี)</label>
+                    <input type="number" name="nda_duration_years" class="form-control"
+                           min="1" max="10" value="{{ agreement.nda_duration_years|default:5 }}">
+                    <div class="form-text">เดิมในเอกสารต้นแบบกำหนด 5 ปี</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ Buttons ══ -->
+    <div class="d-flex gap-2 mb-5">
+        <button type="button" id="btnSave" class="btn btn-primary px-4">
+            <i class="bi bi-floppy me-1"></i>บันทึก
+        </button>
+        <button type="button" id="btnSavePdf" class="btn btn-dark px-4">
+            <i class="bi bi-file-earmark-pdf me-1"></i>บันทึกและดูตัวอย่าง PDF
+        </button>
+        <a href="{% url 'dashboard-agreement-list' %}" class="btn btn-outline-secondary px-4">ยกเลิก</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    /* ── Org selector: auto-fill tester fields ── */
+    const orgSel = document.getElementById('orgSelector');
+    if (orgSel) {
+        orgSel.addEventListener('change', function () {
+            const opt = this.options[this.selectedIndex];
+            if (!opt.value) return;
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+            set('testerNameTh',      opt.dataset.nameTh);
+            set('testerNameEn',      opt.dataset.nameEn);
+            set('testerSignerName',  opt.dataset.approverName);
+            set('testerSignerTitle', opt.dataset.approverTitle);
+        });
+    }
+
+    /* ── A: ปุ่มบันทึก ── */
+    document.getElementById('btnSave').addEventListener('click', function () {
+        document.getElementById('hiddenAction').value = 'save';
+        document.getElementById('agreementForm').target = '_self';
+        document.getElementById('agreementForm').submit();
+    });
+
+    /* ── A: ปุ่ม PDF — เปิดใน tab ใหม่ ── */
+    document.getElementById('btnSavePdf').addEventListener('click', function () {
+        document.getElementById('hiddenAction').value = 'save_pdf';
+        const form = document.getElementById('agreementForm');
+        form.target = '_blank';
+        form.submit();
+        /* คืนค่า target หลัง submit (สำหรับถ้ากด Save ธรรมดาครั้งถัดไป) */
+        setTimeout(function () { form.target = '_self'; }, 500);
+    });
+
+    /* ── B: แสดง พ.ศ. ข้างๆ date input ── */
+    const THAI_MONTHS_SHORT = [
+        'ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
+        'ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'
+    ];
+
+    function showBE(input) {
+        const display = input.nextElementSibling;
+        if (!display || !display.classList.contains('be-display')) return;
+        if (!input.value) { display.textContent = ''; return; }
+        const parts = input.value.split('-');
+        if (parts.length !== 3) return;
+        const y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
+        display.textContent = d + ' ' + THAI_MONTHS_SHORT[m - 1] + ' พ.ศ. ' + (y + 543);
+    }
+
+    function attachRow(row) {
+        row.querySelectorAll('.date-input').forEach(function (inp) {
+            inp.addEventListener('change', function () { showBE(inp); });
+            showBE(inp); /* init ถ้ามีค่าอยู่แล้ว (กรณี edit) */
+        });
+        row.querySelector('.remove-row').addEventListener('click', function () {
+            const body = document.getElementById('periodsBody');
+            if (body.querySelectorAll('.period-row').length > 1) {
+                row.remove();
+            }
+        });
+    }
+
+    /* init แถวที่มีอยู่ */
+    document.querySelectorAll('.period-row').forEach(attachRow);
+
+    /* ── B: เพิ่มแถวใหม่ ── */
+    document.getElementById('addPeriodBtn').addEventListener('click', function () {
+        const body = document.getElementById('periodsBody');
+        const template = body.querySelector('.period-row');
+        const newRow = template.cloneNode(true);
+
+        /* เคลียร์ค่าในแถวใหม่ */
+        newRow.querySelectorAll('input[type="date"]').forEach(function (i) { i.value = ''; });
+        newRow.querySelectorAll('.be-display').forEach(function (s) { s.textContent = ''; });
+        /* คง default เวลา 20:00 / 23:59 */
+        const times = newRow.querySelectorAll('input[type="time"]');
+        if (times[0]) times[0].value = '20:00';
+        if (times[1]) times[1].value = '23:59';
+
+        body.appendChild(newRow);
+        attachRow(newRow);
+    });
+})();
+</script>
+{% endblock %}

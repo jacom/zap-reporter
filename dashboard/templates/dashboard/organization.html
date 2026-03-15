@@ -1,0 +1,161 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{% if org %}แก้ไขหน่วยงาน{% else %}เพิ่มหน่วยงาน{% endif %} — VA Platform{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard-index' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'dashboard-organization' %}">หน่วยงาน</a></li>
+        <li class="breadcrumb-item active">{% if org %}แก้ไข{% else %}เพิ่มใหม่{% endif %}</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-building"></i>
+                    {% if org %}แก้ไขหน่วยงาน: {{ org.name_th }}{% else %}เพิ่มหน่วยงานใหม่{% endif %}
+                </h5>
+                <small class="text-muted">ข้อมูลนี้จะแสดงบนหน้าปกและ header ของรายงาน PDF</small>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data"
+                      action="{% if org %}{% url 'dashboard-organization-edit' org.pk %}{% else %}{% url 'dashboard-organization-new' %}{% endif %}">
+                    {% csrf_token %}
+
+                    <h6 class="theme-title"><i class="bi bi-info-circle me-1"></i>ข้อมูลหน่วยงาน</h6>
+
+                    <div class="mb-3">
+                        <label for="name_th" class="form-label">ชื่อหน่วยงาน (ไทย) <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name_th" name="name_th"
+                               value="{{ org.name_th|default:'' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="name_en" class="form-label">ชื่อหน่วยงาน (อังกฤษ)</label>
+                        <input type="text" class="form-control" id="name_en" name="name_en"
+                               value="{{ org.name_en|default:'' }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="logo" class="form-label">โลโก้หน่วยงาน</label>
+                        {% if org and org.logo %}
+                        <div class="mb-2">
+                            <img src="{{ org.logo.url }}" alt="Logo"
+                                 style="max-height: 80px; background: #fff; padding: 5px; border-radius: 4px;" id="logo-preview">
+                            <div class="form-check mt-1">
+                                <input class="form-check-input" type="checkbox" id="clear_logo" name="clear_logo" value="1">
+                                <label class="form-check-label small" for="clear_logo">ลบโลโก้</label>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="mb-2" id="logo-preview-container" style="display:none;">
+                            <img src="" alt="Preview"
+                                 style="max-height: 80px; background: #fff; padding: 5px; border-radius: 4px;" id="logo-preview">
+                        </div>
+                        {% endif %}
+                        <input type="file" class="form-control" id="logo" name="logo" accept="image/*">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="address" class="form-label">ที่อยู่</label>
+                        <textarea class="form-control" id="address" name="address" rows="3">{{ org.address|default:'' }}</textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="phone" class="form-label">เบอร์โทร</label>
+                            <input type="text" class="form-control" id="phone" name="phone"
+                                   value="{{ org.phone|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">อีเมล</label>
+                            <input type="email" class="form-control" id="email" name="email"
+                                   value="{{ org.email|default:'' }}">
+                        </div>
+                    </div>
+
+                    <hr class="my-4" style="border-color: rgba(255,255,255,0.06);">
+                    <h6 class="theme-title"><i class="bi bi-person-badge me-1"></i>ผู้จัดทำ / ผู้บริหาร</h6>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="preparer_name" class="form-label">ชื่อผู้จัดทำรายงาน</label>
+                            <input type="text" class="form-control" id="preparer_name" name="preparer_name"
+                                   value="{{ org.preparer_name|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="preparer_title" class="form-label">ตำแหน่งผู้จัดทำ</label>
+                            <input type="text" class="form-control" id="preparer_title" name="preparer_title"
+                                   value="{{ org.preparer_title|default:'' }}">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="approver_name" class="form-label">ชื่อผู้บริหารที่เสนอ</label>
+                            <input type="text" class="form-control" id="approver_name" name="approver_name"
+                                   value="{{ org.approver_name|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="approver_title" class="form-label">ตำแหน่งผู้บริหาร</label>
+                            <input type="text" class="form-control" id="approver_title" name="approver_title"
+                                   value="{{ org.approver_title|default:'' }}">
+                        </div>
+                    </div>
+
+                    <hr class="my-4" style="border-color: rgba(255,255,255,0.06);">
+                    <h6 class="theme-title"><i class="bi bi-file-earmark-text me-1"></i>เลขที่เอกสาร</h6>
+
+                    <div class="mb-3">
+                        <label for="document_number_prefix" class="form-label">Prefix เลขที่เอกสาร</label>
+                        <input type="text" class="form-control" id="document_number_prefix" name="document_number_prefix"
+                               value="{{ org.document_number_prefix|default:'VA-RPT-' }}">
+                        <div class="form-text">เช่น "VA-RPT-" จะได้เลขที่เอกสาร VA-RPT-2568-001</div>
+                    </div>
+
+                    <hr class="my-4" style="border-color: rgba(255,255,255,0.06);">
+                    <h6 class="theme-title"><i class="bi bi-star me-1"></i>การตั้งค่า</h6>
+
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="set_default" name="set_default"
+                                   value="1" {% if org and org.is_default %}checked{% endif %}>
+                            <label class="form-check-label" for="set_default">
+                                ตั้งเป็นหน่วยงานหลัก (ใช้เป็นค่าเริ่มต้นสำหรับรายงาน PDF)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> บันทึก
+                        </button>
+                        <a href="{% url 'dashboard-organization' %}" class="btn btn-outline-secondary">ยกเลิก</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('logo').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (file) {
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            var preview = document.getElementById('logo-preview');
+            var container = document.getElementById('logo-preview-container');
+            if (container) container.style.display = 'block';
+            if (preview) preview.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+});
+</script>
+{% endblock %}

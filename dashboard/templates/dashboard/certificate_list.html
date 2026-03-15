@@ -1,0 +1,126 @@
+{% extends "dashboard/base.html" %}
+{% block title %}ใบประกาศนียบัตรทีมงาน — VA Platform{% endblock %}
+
+{% block content %}
+<div class="dashboard-hero mb-4">
+    <div class="row align-items-center g-3">
+        <div class="col">
+            <p class="eyebrow mb-2">Team Management</p>
+            <h2 class="mb-2"><i class="bi bi-patch-check"></i> ใบประกาศนียบัตรทีมงาน</h2>
+            <p class="text-muted mb-0">จัดการใบประกาศนียบัตรและคุณวุฒิของทีมงานผู้ทดสอบ — นำเข้าภาคผนวก 1 ในรายงาน PDF</p>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Form -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        <i class="bi bi-cloud-upload"></i> อัพโหลดใบประกาศนียบัตร
+    </div>
+    <div class="card-body">
+        <form method="post" action="{% url 'dashboard-certificate-upload' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
+                    <input type="text" name="person_name" class="form-control"
+                           placeholder="เช่น นายสมชาย ใจดี"
+                           list="people-list" required autocomplete="off">
+                    <datalist id="people-list">
+                        {% for p in people %}<option value="{{ p }}">{% endfor %}
+                    </datalist>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">ชื่อหลักสูตร <span class="text-danger">*</span></label>
+                    <input type="text" name="course_name" class="form-control"
+                           placeholder="เช่น Certified Ethical Hacker (CEH)" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">หน่วยงานที่ให้</label>
+                    <input type="text" name="issuer" class="form-control"
+                           placeholder="เช่น EC-Council">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">ไฟล์ (PDF / JPG) <span class="text-danger">*</span></label>
+                    <input type="file" name="file" class="form-control"
+                           accept=".pdf,.jpg,.jpeg,.png" required>
+                </div>
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-cloud-upload"></i> อัพโหลด
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Certificate List -->
+{% if grouped %}
+    {% for person, certs in grouped.items %}
+    <div class="card shadow-sm mb-3">
+        <div class="card-header d-flex align-items-center gap-2">
+            <i class="bi bi-person-circle"></i>
+            <strong>{{ person }}</strong>
+            <span class="badge bg-secondary ms-1">{{ certs|length }} ใบ</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th style="width:36px"></th>
+                        <th>หลักสูตร</th>
+                        <th>หน่วยงานที่ให้</th>
+                        <th>ไฟล์</th>
+                        <th>วันที่อัพโหลด</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cert in certs %}
+                    <tr>
+                        <td>
+                            {% if cert.is_image %}
+                            <a href="{{ cert.file.url }}" target="_blank">
+                                <img src="{{ cert.file.url }}" alt=""
+                                     style="width:32px;height:32px;object-fit:cover;border-radius:4px;border:1px solid rgba(255,255,255,0.1)">
+                            </a>
+                            {% else %}
+                            <a href="{{ cert.file.url }}" target="_blank" class="text-danger fs-5">
+                                <i class="bi bi-file-earmark-pdf-fill"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ cert.course_name }}</strong></td>
+                        <td>{{ cert.issuer|default:"—" }}</td>
+                        <td>
+                            <span class="badge {% if cert.is_pdf %}bg-danger{% else %}bg-info text-dark{% endif %} badge-sm">
+                                {{ cert.file_ext|upper }}
+                            </span>
+                        </td>
+                        <td class="text-muted small">{{ cert.uploaded_at|date:"d/m/Y" }}</td>
+                        <td class="text-end">
+                            <form method="post" action="{% url 'dashboard-certificate-delete' cert.pk %}"
+                                  onsubmit="return confirm('ลบใบประกาศนียบัตร {{ cert.course_name }} ของ {{ cert.person_name }} ออก?')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="ลบ">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="card shadow-sm">
+    <div class="card-body text-center text-muted py-5">
+        <i class="bi bi-patch-check fs-1 d-block mb-3" style="opacity:.3"></i>
+        ยังไม่มีใบประกาศนียบัตร — อัพโหลดใบแรกด้านบน
+    </div>
+</div>
+{% endif %}
+{% endblock %}
