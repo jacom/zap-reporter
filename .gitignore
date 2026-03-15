@@ -21,5 +21,6 @@ media/
 reports/agreement_template_backup_*.docx
 reports/agreement_template_noto_backup.docx
 
-# Install scripts
+# Install scripts (bundled into ISO build separately)
 git-setup.sh
+install.sh
