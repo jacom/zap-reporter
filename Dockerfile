@@ -11,10 +11,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcairo2 \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
-    libgdk-pixbuf2.0-0 \
-    libffi8 \
+    libgdk-pixbuf-2.0-0 \
+    libffi-dev \
     shared-mime-info \
-    fonts-noto \
+    fonts-noto-core \
     fonts-noto-cjk \
     fontconfig \
     && fc-cache -f \
