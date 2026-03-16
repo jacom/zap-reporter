@@ -25,26 +25,10 @@
 ```bash
 git clone https://github.com/jacom/zap-reporter.git
 cd zap-reporter
+sudo bash setup-docker.sh
 ```
 
-สร้างไฟล์ `.env`:
-
-```bash
-cp .env.example .env
-nano .env   # แก้ไข password และ API keys
-```
-
-ตั้งค่า kernel (SonarQube):
-
-```bash
-sudo sysctl -w vm.max_map_count=524288
-```
-
-เริ่มต้น:
-
-```bash
-docker compose up -d
-```
+Script จะติดตั้ง Docker (ถ้ายังไม่มี), ตั้งค่า kernel, เปิด firewall และรัน services ให้อัตโนมัติ รองรับ Ubuntu และ AlmaLinux
 
 เปิด browser: `http://<server-ip>:8443`
 Login: `admin` / `Admin@1234!`
