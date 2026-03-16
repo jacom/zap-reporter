@@ -112,6 +112,21 @@ open_firewall() {
     fi
 }
 
+# ── สุ่ม random string ───────────────────────────────────────────────────────
+gen_secret() {
+    local len="${1:-48}"
+    cat /dev/urandom | tr -dc 'A-Za-z0-9!@#%^&*()-_=+' | head -c "$len" 2>/dev/null || true
+}
+
+# ── แก้ค่าใน .env ─────────────────────────────────────────────────────────────
+set_env() {
+    local key="$1" val="$2"
+    # escape ตัวอักษรพิเศษใน value สำหรับ sed
+    local escaped
+    escaped=$(printf '%s\n' "$val" | sed 's/[[\.*^$()+?{|]/\\&/g; s/]/\\]/g')
+    sed -i "s|^${key}=.*|${key}=${escaped}|" .env
+}
+
 # ── สร้าง .env ────────────────────────────────────────────────────────────────
 setup_env() {
     if [[ -f .env ]]; then
@@ -125,16 +140,31 @@ setup_env() {
 
     cp .env.example .env
     ok "สร้าง .env จาก .env.example เรียบร้อย"
-    warn "กรุณาแก้ไข .env ก่อนใช้งาน: nano .env"
-    warn "  - DB_PASSWORD"
-    warn "  - DJANGO_SECRET_KEY"
-    warn "  - DJANGO_ALLOWED_HOSTS"
-    warn "  - ZAP_API_KEY"
-    echo ""
-    read -rp "แก้ไข .env ตอนนี้เลย? [Y/n]: " ans
-    if [[ "${ans:-Y}" =~ ^[Yy]$ ]]; then
-        ${EDITOR:-nano} .env
-    fi
+
+    # DB_PASSWORD — สุ่ม random
+    local db_pass
+    db_pass=$(gen_secret 32)
+    set_env "DB_PASSWORD" "$db_pass"
+    ok "DB_PASSWORD: สร้างอัตโนมัติ"
+
+    # DJANGO_SECRET_KEY — สุ่ม random 50 ตัว
+    local secret_key
+    secret_key=$(gen_secret 50)
+    set_env "DJANGO_SECRET_KEY" "$secret_key"
+    ok "DJANGO_SECRET_KEY: สร้างอัตโนมัติ"
+
+    # ZAP_API_KEY — สุ่ม random
+    local zap_key
+    zap_key=$(gen_secret 24)
+    set_env "ZAP_API_KEY" "$zap_key"
+    ok "ZAP_API_KEY: สร้างอัตโนมัติ"
+
+    # DJANGO_ALLOWED_HOSTS — เช็ค IP จาก network interfaces
+    local server_ips
+    server_ips=$(hostname -I | tr ' ' '\n' | grep -v '^$' | tr '\n' ',' | sed 's/,$//')
+    local allowed_hosts="127.0.0.1,localhost,${server_ips}"
+    set_env "DJANGO_ALLOWED_HOSTS" "$allowed_hosts"
+    ok "DJANGO_ALLOWED_HOSTS: $allowed_hosts"
 }
 
 # ── รัน Docker Compose ───────────────────────────────────────────────────────
