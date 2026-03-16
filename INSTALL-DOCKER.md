@@ -21,7 +21,19 @@
 
 ---
 
-## ขั้นตอนติดตั้ง
+## ขั้นตอนติดตั้ง (แบบ Script อัตโนมัติ)
+
+```bash
+git clone https://github.com/jacom/zap-reporter.git
+cd zap-reporter
+sudo bash setup-docker.sh
+```
+
+Script จะติดตั้ง Docker, ตั้งค่า kernel, เปิด firewall, สร้าง `.env` และรัน services ให้อัตโนมัติ
+
+---
+
+## ขั้นตอนติดตั้งแบบ Manual
 
 ### 1. ติดตั้ง Docker และ Docker Compose
 
