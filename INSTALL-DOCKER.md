@@ -23,11 +23,56 @@
 
 ## ขั้นตอนติดตั้ง
 
-### 1. ติดตั้ง Docker
+### 1. ติดตั้ง Docker และ Docker Compose
+
+ตรวจสอบก่อนว่ามีอยู่แล้วหรือไม่:
 
 ```bash
-curl -fsSL https://get.docker.com | sh
+docker --version
+docker compose version
 ```
+
+ถ้ายังไม่มี ติดตั้งตาม OS:
+
+#### Ubuntu / Debian
+
+```bash
+# ติดตั้ง Docker Engine + Compose plugin
+curl -fsSL https://get.docker.com | sh
+
+# เพิ่ม user ปัจจุบันเข้า docker group (ไม่ต้องพิมพ์ sudo ทุกครั้ง)
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+#### AlmaLinux / Rocky Linux / RHEL
+
+```bash
+# เพิ่ม Docker repo
+sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+
+# ติดตั้ง Docker Engine + Compose plugin
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# เปิดใช้งานและ start service
+sudo systemctl enable --now docker
+
+# เพิ่ม user ปัจจุบันเข้า docker group
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+ตรวจสอบอีกครั้ง:
+
+```bash
+docker --version        # Docker version 24.x.x
+docker compose version  # Docker Compose version v2.x.x
+```
+
+> **หมายเหตุ:** `docker compose` (v2, plugin) ต่างจาก `docker-compose` (v1, standalone)
+> คู่มือนี้ใช้ `docker compose` (v2) เท่านั้น
+
+---
 
 ### 2. Clone repository
 
@@ -57,15 +102,28 @@ nano .env   # แก้ไข password และ API keys ที่ต้อง�
 > ต้องรันทุกครั้งที่ reboot หรือเพิ่มใน `/etc/sysctl.conf` เพื่อให้คงอยู่
 
 ```bash
-# รันครั้งเดียว (หายหลัง reboot)
-sudo sysctl -w vm.max_map_count=524288
-
-# หรือตั้งค่าถาวร
+# ตั้งค่าถาวร (แนะนำ)
 echo 'vm.max_map_count=524288' | sudo tee -a /etc/sysctl.conf
 sudo sysctl -p
 ```
 
-### 5. เริ่มต้น services
+### 5. เปิด firewall port 8443
+
+#### Ubuntu (ufw)
+
+```bash
+sudo ufw allow 8443/tcp
+sudo ufw reload
+```
+
+#### AlmaLinux / Rocky Linux (firewalld)
+
+```bash
+sudo firewall-cmd --permanent --add-port=8443/tcp
+sudo firewall-cmd --reload
+```
+
+### 6. เริ่มต้น services
 
 ```bash
 docker compose up -d
@@ -78,7 +136,7 @@ docker compose ps
 docker compose logs -f app   # ดู log Django
 ```
 
-### 6. เข้าใช้งาน
+### 7. เข้าใช้งาน
 
 เปิด browser ไปที่:
 
@@ -110,23 +168,33 @@ curl http://localhost:8090/JSON/core/view/version/?apikey=<ZAP_API_KEY>
 
 ## ตั้งค่า SonarQube Token (optional)
 
-1. เปิด browser ไปที่ `http://<server-ip>:9000` (เปิด port ก่อน หรือใช้ SSH tunnel)
-2. Login: `admin` / `admin` → เปลี่ยน password
-3. ไปที่ **My Account → Security → Generate Token**
-4. คัดลอก token ใส่ใน `.env`:
+1. เปิด port ชั่วคราวเพื่อเข้า SonarQube UI:
+
+```bash
+# Ubuntu
+sudo ufw allow 9000/tcp
+
+# AlmaLinux
+sudo firewall-cmd --temporary --add-port=9000/tcp
+```
+
+2. เปิด browser ไปที่ `http://<server-ip>:9000`
+3. Login: `admin` / `admin` → เปลี่ยน password
+4. ไปที่ **My Account → Security → Generate Token**
+5. คัดลอก token ใส่ใน `.env`:
 
 ```bash
 SONARQUBE_TOKEN=squ_xxxxxxxxxxxx
 ```
 
-5. Restart app:
+6. Restart app:
 
 ```bash
 docker compose restart app
 ```
 
-> หมายเหตุ: SonarQube port 9000 ไม่ได้ expose ออกนอก Docker network โดย default
-> ถ้าต้องการเข้าถึงจากภายนอก ให้เพิ่ม `ports: - "9000:9000"` ใน `docker-compose.yml`
+> SonarQube port 9000 ไม่ได้ expose ออกนอก Docker network โดย default
+> ถ้าต้องการเปิดถาวร ให้เพิ่ม `ports: - "9000:9000"` ใน `docker-compose.yml`
 
 ---
 
@@ -156,20 +224,6 @@ docker compose exec db pg_dump -U zap_reporter zap_report > backup.sql
 
 # Restore database
 cat backup.sql | docker compose exec -T db psql -U zap_reporter zap_report
-```
-
----
-
-## การ expose port สำหรับ external access
-
-ถ้า server อยู่ใน network และต้องการให้เครื่องอื่นเข้าถึงได้ ตรวจสอบ firewall:
-
-```bash
-# Ubuntu/Debian (ufw)
-sudo ufw allow 8443/tcp
-
-# หรือ iptables
-sudo iptables -A INPUT -p tcp --dport 8443 -j ACCEPT
 ```
 
 ---
