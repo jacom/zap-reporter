@@ -39,37 +39,18 @@ cd zap-reporter
 ### 3. สร้างไฟล์ `.env`
 
 ```bash
-cp .env.example .env   # ถ้ามี หรือสร้างใหม่ตามด้านล่าง
+cp .env.example .env
+nano .env   # แก้ไข password และ API keys ที่ต้องการ
 ```
 
-สร้าง `.env` ด้วยคำสั่งนี้ (เปลี่ยน password ก่อนใช้งานจริง):
+ค่าที่ **ต้องแก้ไข** ก่อนใช้งาน:
 
-```bash
-cat > .env << 'EOF'
-# Database
-DB_PASSWORD=changeme_strong_password
-
-# Django
-DJANGO_SECRET_KEY=change-this-to-a-random-string-in-production
-DJANGO_DEBUG=False
-DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
-
-# OWASP ZAP
-ZAP_API_KEY=your-zap-api-key
-
-# SonarQube (กรอกหลัง SonarQube เปิดแล้ว)
-SONARQUBE_TOKEN=
-
-# OpenAI (optional — สำหรับ AI analysis)
-OPENAI_API_KEY=
-
-# WPScan (optional — ลงทะเบียนฟรีที่ https://wpscan.com/register)
-WPSCAN_API_TOKEN=
-
-# NVD API (optional — ลงทะเบียนฟรีที่ https://nvd.nist.gov/developers/request-an-api-key)
-NVD_API_KEY=
-EOF
-```
+| Variable | คำอธิบาย |
+|---|---|
+| `DB_PASSWORD` | Password สำหรับ PostgreSQL |
+| `DJANGO_SECRET_KEY` | Random string ยาวๆ สำหรับ Django |
+| `DJANGO_ALLOWED_HOSTS` | IP/domain ของ server |
+| `ZAP_API_KEY` | API Key สำหรับ OWASP ZAP |
 
 ### 4. ตั้งค่า kernel parameter สำหรับ SonarQube
 

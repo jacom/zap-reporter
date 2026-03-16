@@ -30,13 +30,8 @@ cd zap-reporter
 สร้างไฟล์ `.env`:
 
 ```bash
-cat > .env << 'EOF'
-DB_PASSWORD=changeme_strong_password
-DJANGO_SECRET_KEY=change-this-to-a-random-string
-DJANGO_DEBUG=False
-DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
-ZAP_API_KEY=your-zap-api-key
-EOF
+cp .env.example .env
+nano .env   # แก้ไข password และ API keys
 ```
 
 ตั้งค่า kernel (SonarQube):
