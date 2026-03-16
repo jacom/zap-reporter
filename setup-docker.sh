@@ -112,65 +112,139 @@ open_firewall() {
     fi
 }
 
-# ── สุ่ม random string ───────────────────────────────────────────────────────
+# ── สุ่ม random string (ใช้ python3 เพื่อหลีกเลี่ยงตัวอักษรพิเศษที่ทำให้ .env พัง) ──
 gen_secret() {
     local len="${1:-48}"
-    cat /dev/urandom | tr -dc 'A-Za-z0-9!@#%^&*()-_=+' | head -c "$len" 2>/dev/null || true
+    python3 -c "import secrets, string; \
+        alphabet = string.ascii_letters + string.digits; \
+        print(''.join(secrets.choice(alphabet) for _ in range($len)))"
 }
 
-# ── แก้ค่าใน .env ─────────────────────────────────────────────────────────────
+# ── ตั้งหรืออัปเดตค่าใน .env ─────────────────────────────────────────────────
+# ถ้า key มีอยู่แล้ว → อัปเดต, ถ้าไม่มี → append ท้ายไฟล์
 set_env() {
     local key="$1" val="$2"
-    # escape ตัวอักษรพิเศษใน value สำหรับ sed
-    local escaped
-    escaped=$(printf '%s\n' "$val" | sed 's/[[\.*^$()+?{|]/\\&/g; s/]/\\]/g')
-    sed -i "s|^${key}=.*|${key}=${escaped}|" .env
+    if grep -q "^${key}=" .env; then
+        # ใช้ python3 แทน sed เพื่อหลีกเลี่ยงปัญหา escape กับตัวอักษรพิเศษ
+        python3 - "$key" "$val" << 'PYEOF'
+import sys, pathlib
+key, val = sys.argv[1], sys.argv[2]
+p = pathlib.Path('.env')
+lines = p.read_text().splitlines(keepends=True)
+p.write_text(''.join(
+    f'{key}={val}\n' if line.startswith(f'{key}=') else line
+    for line in lines
+))
+PYEOF
+    else
+        echo "${key}=${val}" >> .env
+    fi
 }
 
-# ── สร้าง .env ────────────────────────────────────────────────────────────────
-setup_env() {
-    if [[ -f .env ]]; then
-        ok ".env มีอยู่แล้ว — ข้ามขั้นตอนนี้"
-        return
-    fi
+# ── ตรวจจับ value ที่ corrupt (key ซ้ำใน value เดียวกัน) ─────────────────────
+# เช่น: DB_PASSWORD=abc123DB_PASSWORD=xyz → corrupt
+is_corrupt() {
+    local key="$1"
+    local val
+    val=$(grep "^${key}=" .env | head -1 | cut -d'=' -f2-)
+    # ถ้า value มี KEY= ซ้ำอยู่ข้างใน = corrupt
+    echo "$val" | grep -q "${key}="
+}
 
+# ── สร้างหรือ validate .env ───────────────────────────────────────────────────
+setup_env() {
     if [[ ! -f .env.example ]]; then
         error "ไม่พบ .env.example — กรุณา clone repo ก่อน"
     fi
 
-    cp .env.example .env
-    ok "สร้าง .env จาก .env.example เรียบร้อย"
+    if [[ ! -f .env ]]; then
+        cp .env.example .env
+        ok "สร้าง .env จาก .env.example"
+    else
+        warn ".env มีอยู่แล้ว — ตรวจสอบและเติมค่าที่ขาด"
+    fi
 
-    # DB_PASSWORD — สุ่ม random
-    local db_pass
-    db_pass=$(gen_secret 32)
-    set_env "DB_PASSWORD" "$db_pass"
-    ok "DB_PASSWORD: สร้างอัตโนมัติ"
+    # ── ตรวจและแก้ค่าที่ corrupt หรือยังเป็น placeholder ──────────────────────
 
-    # DJANGO_SECRET_KEY — สุ่ม random 50 ตัว
-    local secret_key
-    secret_key=$(gen_secret 50)
-    set_env "DJANGO_SECRET_KEY" "$secret_key"
-    ok "DJANGO_SECRET_KEY: สร้างอัตโนมัติ"
+    # DB_USER — ต้องเป็น zap_reporter เสมอ
+    if ! grep -q "^DB_USER=" .env; then
+        set_env "DB_USER" "zap_reporter"
+        ok "DB_USER: เพิ่มใหม่ → zap_reporter"
+    elif [[ "$(grep "^DB_USER=" .env | cut -d'=' -f2-)" != "zap_reporter" ]]; then
+        set_env "DB_USER" "zap_reporter"
+        ok "DB_USER: แก้ไขเป็น zap_reporter"
+    else
+        ok "DB_USER: zap_reporter (OK)"
+    fi
 
-    # ZAP_API_KEY — สุ่ม random
-    local zap_key
-    zap_key=$(gen_secret 24)
-    set_env "ZAP_API_KEY" "$zap_key"
-    ok "ZAP_API_KEY: สร้างอัตโนมัติ"
+    # DB_PASSWORD — สุ่มใหม่ถ้า corrupt หรือยังเป็น placeholder
+    local db_pass_val
+    db_pass_val=$(grep "^DB_PASSWORD=" .env | cut -d'=' -f2-)
+    if is_corrupt "DB_PASSWORD" || [[ "$db_pass_val" == "changeme"* ]] || [[ -z "$db_pass_val" ]]; then
+        local db_pass
+        db_pass=$(gen_secret 32)
+        set_env "DB_PASSWORD" "$db_pass"
+        ok "DB_PASSWORD: สร้างอัตโนมัติ"
+    else
+        ok "DB_PASSWORD: มีอยู่แล้ว (OK)"
+    fi
 
-    # DJANGO_ALLOWED_HOSTS — เช็ค IP จาก network interfaces
-    local server_ips
-    server_ips=$(hostname -I | tr ' ' '\n' | grep -v '^$' | tr '\n' ',' | sed 's/,$//')
-    local allowed_hosts="127.0.0.1,localhost,${server_ips}"
-    set_env "DJANGO_ALLOWED_HOSTS" "$allowed_hosts"
-    ok "DJANGO_ALLOWED_HOSTS: $allowed_hosts"
+    # DJANGO_SECRET_KEY — สุ่มใหม่ถ้า corrupt หรือยังเป็น placeholder
+    local sk_val
+    sk_val=$(grep "^DJANGO_SECRET_KEY=" .env | cut -d'=' -f2-)
+    if is_corrupt "DJANGO_SECRET_KEY" || [[ "$sk_val" == "change-this"* ]] || [[ -z "$sk_val" ]]; then
+        local secret_key
+        secret_key=$(gen_secret 50)
+        set_env "DJANGO_SECRET_KEY" "$secret_key"
+        ok "DJANGO_SECRET_KEY: สร้างอัตโนมัติ"
+    else
+        ok "DJANGO_SECRET_KEY: มีอยู่แล้ว (OK)"
+    fi
+
+    # ZAP_API_KEY — สุ่มใหม่ถ้า corrupt หรือยังเป็น placeholder
+    local zap_key_val
+    zap_key_val=$(grep "^ZAP_API_KEY=" .env | cut -d'=' -f2-)
+    if is_corrupt "ZAP_API_KEY" || [[ "$zap_key_val" == "your-zap"* ]] || [[ -z "$zap_key_val" ]]; then
+        local zap_key
+        zap_key=$(gen_secret 24)
+        set_env "ZAP_API_KEY" "$zap_key"
+        ok "ZAP_API_KEY: สร้างอัตโนมัติ"
+    else
+        ok "ZAP_API_KEY: มีอยู่แล้ว (OK)"
+    fi
+
+    # URL fields ที่ต้องมีเสมอ (internal docker service names)
+    local -A REQUIRED_URLS=(
+        [ZAP_BASE_URL]="http://zap:8090"
+        [TRIVY_SERVER_URL]="http://trivy:4954"
+        [SONARQUBE_URL]="http://sonarqube:9000"
+    )
+    for key in "${!REQUIRED_URLS[@]}"; do
+        if ! grep -q "^${key}=" .env; then
+            set_env "$key" "${REQUIRED_URLS[$key]}"
+            ok "${key}: เพิ่มใหม่ → ${REQUIRED_URLS[$key]}"
+        else
+            ok "${key}: มีอยู่แล้ว (OK)"
+        fi
+    done
+
+    # DJANGO_ALLOWED_HOSTS — เติม IP ของเครื่องถ้ายังเป็น default
+    local ah_val
+    ah_val=$(grep "^DJANGO_ALLOWED_HOSTS=" .env | cut -d'=' -f2-)
+    if [[ "$ah_val" == "127.0.0.1,localhost" ]] || [[ -z "$ah_val" ]]; then
+        local server_ips
+        server_ips=$(hostname -I | tr ' ' '\n' | grep -v '^$' | tr '\n' ',' | sed 's/,$//')
+        set_env "DJANGO_ALLOWED_HOSTS" "127.0.0.1,localhost,${server_ips}"
+        ok "DJANGO_ALLOWED_HOSTS: อัปเดตเป็น 127.0.0.1,localhost,${server_ips}"
+    else
+        ok "DJANGO_ALLOWED_HOSTS: มีอยู่แล้ว (OK)"
+    fi
 }
 
 # ── รัน Docker Compose ───────────────────────────────────────────────────────
 start_services() {
-    info "กำลังเริ่ม services..."
-    docker compose up -d
+    info "กำลัง build และเริ่ม services..."
+    docker compose up -d --build
     echo ""
     ok "Services เริ่มต้นเสร็จแล้ว"
     echo ""
