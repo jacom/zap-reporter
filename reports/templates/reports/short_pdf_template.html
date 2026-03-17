@@ -1,0 +1,396 @@
+{% load thai_date %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<style>
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 300; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Light.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 400; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Regular.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: italic; font-weight: 400; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Italic.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 600; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-SemiBold.ttf') format('truetype'); }
+    @font-face { font-family: 'Sarabun'; font-style: normal; font-weight: 700; src: url('file:///usr/local/share/fonts/sarabun/Sarabun-Bold.ttf') format('truetype'); }
+
+    @page {
+        size: A4;
+        margin: 1.5cm 1.5cm 2cm;
+        @bottom-center {
+            content: "หน้า " counter(page) " / " counter(pages);
+            font-size: 8pt;
+            color: #888;
+        }
+        @top-center { content: element(runningHeader); }
+    }
+    @page :first { @top-center { content: none; } }
+
+    body {
+        font-family: 'Sarabun', sans-serif;
+        font-size: 10pt;
+        color: #1a1a2e;
+        line-height: 1.5;
+    }
+    .page-break { page-break-before: always; }
+
+    /* Running header (shown from page 2 onward) */
+    .running-header {
+        position: running(runningHeader);
+        font-size: 8pt;
+        color: #666;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 3px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .running-header img { height: 16px; vertical-align: middle; margin-right: 4px; }
+
+    /* ── Cover (ฉบับย่อ) ── */
+    .cover {
+        text-align: center;
+        padding-top: 4px;
+        page-break-after: always;
+        min-height: 270mm;
+        display: flex;
+        flex-direction: column;
+    }
+    .cover-top { flex: 1; }
+    .cover-logo { max-height: 70px; margin-bottom: 8px; }
+    .cover-org-name { font-size: 13pt; font-weight: 600; color: #1a1a2e; margin-bottom: 4px; }
+    .cover h1 { font-size: 22pt; color: #16213e; margin-bottom: 4px; margin-top: 12px; }
+    .cover h2 { font-size: 14pt; color: #0f766e; margin-top: 0; margin-bottom: 8px; }
+    .cover .line { width: 200px; height: 3px; background: linear-gradient(90deg,#0d9488,#22d3ee); margin: 10px auto; }
+    .cover .badge-short {
+        display: inline-block;
+        background: #0d9488;
+        color: #fff;
+        border-radius: 20px;
+        padding: 3px 16px;
+        font-size: 9pt;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+    .cover .meta { margin-top: 10px; font-size: 10pt; color: #555; }
+    .cover .meta p { margin: 3px 0; }
+    .cover-confidential {
+        margin: 14px auto 0;
+        max-width: 420px;
+        padding: 8px 14px;
+        border: 1px solid #c8a415;
+        border-left: 4px solid #c8a415;
+        border-radius: 4px;
+        background: #fffbf0;
+        font-size: 8pt;
+        color: #5a4a00;
+        text-align: left;
+    }
+    .cover-confidential .conf-title { font-weight: 700; font-size: 9pt; color: #7a5c00; }
+
+    /* ── Signers block (bottom of cover) ── */
+    .cover-signers {
+        margin-top: auto;
+        padding-top: 20px;
+        font-size: 10pt;
+        color: #444;
+    }
+    .signers-row { display: flex; justify-content: space-around; }
+    .signer-block { text-align: center; width: 45%; }
+    .signer-line { border-top: 1px solid #333; width: 180px; margin: 36px auto 4px; }
+    .signer-label { font-size: 9pt; color: #666; }
+
+    /* ── Section titles ── */
+    .section-title {
+        color: #16213e;
+        border-bottom: 3px solid #0d9488;
+        padding-bottom: 5px;
+        margin-top: 24px;
+        margin-bottom: 10px;
+        font-size: 13pt;
+        page-break-after: avoid;
+    }
+    .section-subtitle { font-size: 9pt; color: #666; margin-top: -6px; margin-bottom: 10px; }
+
+    /* ── Summary boxes ── */
+    .summary-grid { display: flex; gap: 8px; margin: 12px 0; }
+    .summary-box {
+        flex: 1;
+        text-align: center;
+        padding: 10px 6px;
+        border-radius: 8px;
+        color: #fff;
+    }
+    .summary-box .count { font-size: 20pt; font-weight: 700; line-height: 1.1; }
+    .summary-box .label { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.04em; }
+    .bg-critical { background: #6f1d1b; }
+    .bg-high     { background: #dc3545; }
+    .bg-medium   { background: #fd7e14; }
+    .bg-low      { background: #0dcaf0; color: #04252b; }
+    .bg-info     { background: #6c757d; }
+
+    /* ── Charts row ── */
+    .charts-row { display: flex; gap: 16px; align-items: flex-start; margin: 12px 0; }
+    .charts-row .chart-box { flex: 1; text-align: center; }
+    .charts-row img { max-width: 100%; }
+
+    /* ── Tables ── */
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 9pt; }
+    th { background: #142739; color: #fff; padding: 7px 8px; text-align: left; }
+    td { padding: 5px 8px; border-bottom: 1px solid #e0e0e0; vertical-align: middle; }
+    tr:nth-child(even) td { background: #f9fafb; }
+
+    /* ── Severity badges ── */
+    .sev { padding: 2px 7px; border-radius: 4px; font-weight: 600; font-size: 8pt; color: #fff; }
+    .sev-critical { background: #6f1d1b; }
+    .sev-high     { background: #dc3545; }
+    .sev-medium   { background: #fd7e14; }
+    .sev-low      { background: #0dcaf0; color: #04252b; }
+    .sev-info     { background: #6c757d; }
+
+    /* ── Coverage matrix status ── */
+    .status-found      { color: #dc3545; font-weight: 700; }
+    .status-clean      { color: #198754; font-weight: 700; }
+    .status-not-tested { color: #aaa; }
+    .bar-track { background: #e9ecef; border-radius: 4px; height: 8px; width: 100%; }
+    .bar-fill  { height: 8px; border-radius: 4px; }
+
+    /* ── Appendix certificates ── */
+    .cert-page { page-break-before: always; text-align: center; }
+    .cert-page img { max-width: 95%; max-height: 260mm; }
+    .cert-info { font-size: 9pt; color: #555; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<!-- Running header (page 2+) -->
+<div class="running-header">
+    <span>
+        {% if org_logo_b64 %}<img src="{{ org_logo_b64 }}" alt="">{% endif %}
+        {{ org.name_th|default:"ZAP Reporter" }}
+    </span>
+    <span>รายงานผลการทดสอบเจาะระบบ (ฉบับย่อ) — {{ target_label }}</span>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     COVER PAGE
+════════════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-top">
+    {% if org_logo_b64 %}
+    <img src="{{ org_logo_b64 }}" alt="{{ org.name_th }}" class="cover-logo">
+    {% endif %}
+    {% if org.name_th %}<div class="cover-org-name">{{ org.name_th }}</div>{% endif %}
+
+    <h1>Penetration Testing Report</h1>
+    <h2>รายงานผลการทดสอบเจาะระบบ</h2>
+    <div class="line"></div>
+    <div class="badge-short">ฉบับย่อ — สำหรับส่งกระทรวง</div>
+
+    <div class="meta">
+      <p><strong>เป้าหมาย:</strong> {{ target_label }}</p>
+      {% if primary_target %}<p><strong>URL:</strong> {{ primary_target.url }}</p>{% endif %}
+      <p><strong>วันที่รายงาน:</strong> {% now "j" %} {% now "F" %} {% now "Y" %}</p>
+      {% if doc_number %}<p><strong>เลขที่เอกสาร:</strong> {{ doc_number }}</p>{% endif %}
+      <p><strong>Tools ที่ใช้:</strong>
+        {% for s in scans %}{{ s.get_tool_display }}{% if not forloop.last %}, {% endif %}{% endfor %}
+      </p>
+    </div>
+
+    <div class="cover-confidential">
+      <div class="conf-title">CONFIDENTIAL — ลับ</div>
+      เอกสารนี้มีข้อมูลที่เป็นความลับ จัดทำขึ้นเพื่อผู้รับที่ระบุเท่านั้น
+      ห้ามเผยแพร่ คัดลอก หรือส่งต่อโดยไม่ได้รับอนุญาต
+    </div>
+  </div>
+
+  <!-- Signers bottom of cover -->
+  <div class="cover-signers">
+    <div class="signers-row">
+      <div class="signer-block">
+        <div class="signer-line"></div>
+        <div>{% if org.pentest_lead %}{{ org.pentest_lead }}{% else %}..................................................{% endif %}</div>
+        <div class="signer-label">ผู้ทำการทดสอบ (Penetration Tester)</div>
+        {% if org.pentest_lead_position %}<div class="signer-label">{{ org.pentest_lead_position }}</div>{% endif %}
+      </div>
+      <div class="signer-block">
+        <div class="signer-line"></div>
+        <div>{% if org.report_recipient %}{{ org.report_recipient }}{% else %}..................................................{% endif %}</div>
+        <div class="signer-label">ผู้รับรายงาน</div>
+        {% if org.report_recipient_position %}<div class="signer-label">{{ org.report_recipient_position }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     FINDINGS SUMMARY / สรุปผลการตรวจสอบ
+════════════════════════════════════════════════════════════════════ -->
+<h2 class="section-title">Findings Summary / สรุปผลการตรวจสอบ</h2>
+<p class="section-subtitle">สรุปจำนวนช่องโหว่ที่พบแยกตาม scan</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>เป้าหมาย</th>
+      <th>Tool</th>
+      <th style="text-align:center">Critical</th>
+      <th style="text-align:center">High</th>
+      <th style="text-align:center">Medium</th>
+      <th style="text-align:center">Low</th>
+      <th style="text-align:center">Info</th>
+      <th style="text-align:center">รวม</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in per_scan_summary %}
+    <tr>
+      <td>{{ row.target }}</td>
+      <td>{{ row.tool }}</td>
+      <td style="text-align:center">
+        {% if row.critical %}<span class="sev sev-critical">{{ row.critical }}</span>{% else %}—{% endif %}
+      </td>
+      <td style="text-align:center">
+        {% if row.high %}<span class="sev sev-high">{{ row.high }}</span>{% else %}—{% endif %}
+      </td>
+      <td style="text-align:center">
+        {% if row.medium %}<span class="sev sev-medium">{{ row.medium }}</span>{% else %}—{% endif %}
+      </td>
+      <td style="text-align:center">
+        {% if row.low %}<span class="sev sev-low">{{ row.low }}</span>{% else %}—{% endif %}
+      </td>
+      <td style="text-align:center">
+        {% if row.info %}<span class="sev sev-info">{{ row.info }}</span>{% else %}—{% endif %}
+      </td>
+      <td style="text-align:center"><strong>{{ row.total }}</strong></td>
+    </tr>
+    {% endfor %}
+    <tr style="background:#f0f4f8">
+      <td colspan="2"><strong>รวมทั้งหมด</strong></td>
+      <td style="text-align:center"><strong>{{ totals.critical }}</strong></td>
+      <td style="text-align:center"><strong>{{ totals.high }}</strong></td>
+      <td style="text-align:center"><strong>{{ totals.medium }}</strong></td>
+      <td style="text-align:center"><strong>{{ totals.low }}</strong></td>
+      <td style="text-align:center"><strong>{{ totals.info }}</strong></td>
+      <td style="text-align:center"><strong>{{ total_all }}</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     COVERAGE MATRIX / ตารางความครอบคลุม OWASP Top 10:2025
+════════════════════════════════════════════════════════════════════ -->
+<h2 class="section-title">Coverage Matrix / ตารางความครอบคลุม OWASP Top 10:2025</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:60px">รหัส</th>
+      <th>หมวดหมู่</th>
+      <th style="text-align:center;width:60px">High+</th>
+      <th style="text-align:center;width:55px">Medium</th>
+      <th style="text-align:center;width:45px">Low</th>
+      <th style="text-align:center;width:55px">รวม</th>
+      <th style="width:80px">สถานะ</th>
+      <th style="width:100px">Tools</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in coverage_matrix %}
+    <tr>
+      <td><strong>{{ row.code }}</strong></td>
+      <td>
+        {{ row.name }}<br>
+        <small style="color:#666">{{ row.name_th }}</small>
+      </td>
+      <td style="text-align:center">
+        {% if row.high_total %}<span class="sev sev-high">{{ row.high_total }}</span>{% else %}—{% endif %}
+      </td>
+      <td style="text-align:center">
+        {% if row.medium %}<span class="sev sev-medium">{{ row.medium }}</span>{% else %}—{% endif %}
+      </td>
+      <td style="text-align:center">
+        {% if row.low %}<span class="sev sev-low">{{ row.low }}</span>{% else %}—{% endif %}
+      </td>
+      <td style="text-align:center"><strong>{{ row.total }}</strong></td>
+      <td>
+        {% if row.status == 'found' %}
+          <span class="status-found">⚠ พบช่องโหว่</span>
+        {% elif row.status == 'clean' %}
+          <span class="status-clean">✓ ผ่าน</span>
+        {% else %}
+          <span class="status-not-tested">— ไม่ได้ทดสอบ</span>
+        {% endif %}
+      </td>
+      <td style="font-size:8pt;color:#555">{{ row.covering_tools|join:", " }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     EXECUTIVE SUMMARY / บทสรุปผู้บริหาร
+════════════════════════════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 class="section-title">Executive Summary / บทสรุปผู้บริหาร</h2>
+
+<!-- กล่องตัวเลขแยกสี -->
+<div class="summary-grid">
+  <div class="summary-box bg-critical">
+    <div class="count">{{ totals.critical }}</div>
+    <div class="label">Critical</div>
+  </div>
+  <div class="summary-box bg-high">
+    <div class="count">{{ totals.high }}</div>
+    <div class="label">High</div>
+  </div>
+  <div class="summary-box bg-medium">
+    <div class="count">{{ totals.medium }}</div>
+    <div class="label">Medium</div>
+  </div>
+  <div class="summary-box bg-low">
+    <div class="count">{{ totals.low }}</div>
+    <div class="label">Low</div>
+  </div>
+  <div class="summary-box bg-info">
+    <div class="count">{{ totals.info }}</div>
+    <div class="label">Info</div>
+  </div>
+</div>
+
+<!-- กราฟ severity + distribution -->
+<div class="charts-row">
+  {% if severity_chart %}
+  <div class="chart-box">
+    <img src="data:image/png;base64,{{ severity_chart }}" alt="Severity Distribution">
+  </div>
+  {% endif %}
+  {% if dist_chart %}
+  <div class="chart-box">
+    <img src="data:image/png;base64,{{ dist_chart }}" alt="OWASP Distribution">
+  </div>
+  {% endif %}
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     ภาคผนวก — ประกาศนียบัตร
+════════════════════════════════════════════════════════════════════ -->
+{% if certificates %}
+<div class="page-break"></div>
+<h2 class="section-title">ภาคผนวก — ประกาศนียบัตรผู้ทดสอบ</h2>
+{% for cert in certificates %}
+  {% if cert.is_image and cert.data_uri %}
+  <div class="cert-page">
+    <div class="cert-info">
+      <strong>{{ cert.person_name }}</strong>
+      {% if cert.course_name %} — {{ cert.course_name }}{% endif %}
+      {% if cert.issuer %} ({{ cert.issuer }}){% endif %}
+    </div>
+    <img src="{{ cert.data_uri }}" alt="Certificate {{ cert.person_name }}">
+  </div>
+  {% endif %}
+{% endfor %}
+{% endif %}
+
+</body>
+</html>

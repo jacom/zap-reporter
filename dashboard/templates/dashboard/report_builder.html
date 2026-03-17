@@ -167,6 +167,13 @@
                         <option value="excel">Excel (.xlsx)</option>
                     </select>
                 </div>
+                <div class="col-md-3">
+                    <label class="form-label mb-1 fw-semibold">ประเภทรายงาน</label>
+                    <select class="form-select form-select-sm" name="report_type" id="reportTypeSelect">
+                        <option value="full">ฉบับเต็ม</option>
+                        <option value="short">ฉบับย่อ (สำหรับส่งกระทรวง)</option>
+                    </select>
+                </div>
                 {% if organizations %}
                 <div class="col-md-3">
                     <label class="form-label mb-1 fw-semibold">หน่วยงาน</label>
@@ -336,6 +343,15 @@
     if (t) { targetFilter.value = t; filterTable(); }
 
     updateUI();
+
+    // Hide report type when excel is selected
+    var reportFormatSelect = document.querySelector('select[name="report_format"]');
+    var reportTypeWrapper = document.getElementById('reportTypeSelect').closest('.col-md-3');
+    function toggleReportType() {
+        reportTypeWrapper.style.display = reportFormatSelect.value === 'excel' ? 'none' : '';
+    }
+    reportFormatSelect.addEventListener('change', toggleReportType);
+    toggleReportType();
 
     // Open delete modal via JS (avoids Bootstrap ignoring disabled-button data-bs-toggle)
     var deleteModalEl = document.getElementById('deleteModal');

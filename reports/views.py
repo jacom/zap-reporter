@@ -102,5 +102,6 @@ def combined_report(request):
         from .pdf_generator import generate_combined_excel
         return generate_combined_excel(scan_ids)
     else:
+        report_type = request.POST.get('report_type', 'full')
         from .pdf_generator import generate_combined_pdf
-        return generate_combined_pdf(scan_ids, report_title, org_id=org_id)
+        return generate_combined_pdf(scan_ids, report_title, org_id=org_id, report_type=report_type)

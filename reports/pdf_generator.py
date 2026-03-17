@@ -543,7 +543,7 @@ def _generate_combined_severity_chart(totals):
     return base64.b64encode(buf.read()).decode('utf-8')
 
 
-def generate_combined_pdf(scan_ids, report_title='', org_id=None):
+def generate_combined_pdf(scan_ids, report_title='', org_id=None, report_type='full'):
     """Generate combined multi-tool OWASP report from multiple scan IDs.
 
     Args:
@@ -657,13 +657,19 @@ def generate_combined_pdf(scan_ids, report_title='', org_id=None):
         'certificates': _encode_certificates(),
     }
 
-    html_string = render_to_string('reports/combined_pdf_template.html', context)
+    template_name = (
+        'reports/short_pdf_template.html'
+        if report_type == 'short'
+        else 'reports/combined_pdf_template.html'
+    )
+    html_string = render_to_string(template_name, context)
     from weasyprint import HTML
     pdf_file = HTML(string=html_string).write_pdf()
 
     safe_name = target_label[:30].replace(' ', '_').replace('/', '-')
+    suffix = '_short' if report_type == 'short' else ''
     response = HttpResponse(pdf_file, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="VA_Report_{safe_name}.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="VA_Report_{safe_name}{suffix}.pdf"'
     return response
 
 
