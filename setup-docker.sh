@@ -247,6 +247,46 @@ start_services() {
     docker compose up -d --build
     echo ""
     ok "Services เริ่มต้นเสร็จแล้ว"
+}
+
+# ── ตรวจสอบ tools ใน app container ──────────────────────────────────────────
+verify_tools() {
+    info "ตรวจสอบ security tools ใน app container..."
+
+    # รอให้ app container พร้อม (สูงสุด 60 วินาที)
+    local retries=12
+    until docker exec zap-reporter-app-1 true 2>/dev/null; do
+        retries=$((retries - 1))
+        [[ $retries -eq 0 ]] && warn "app container ยังไม่พร้อม — ข้ามการตรวจสอบ tools" && return
+        sleep 5
+    done
+
+    local all_ok=true
+
+    _check_tool() {
+        local name="$1" cmd="$2"
+        if docker exec zap-reporter-app-1 sh -c "$cmd" &>/dev/null; then
+            ok "  $name"
+        else
+            warn "  $name — ไม่พร้อม"
+            all_ok=false
+        fi
+    }
+
+    _check_tool "ffuf"       "ffuf -V"
+    _check_tool "testssl.sh" "testssl --version"
+    _check_tool "wpscan"     "wpscan --version"
+    _check_tool "wordlist (dirb)" "test -f /usr/share/dirb/wordlists/common.txt"
+
+    if $all_ok; then
+        ok "tools ทุกตัวพร้อมใช้งาน"
+    else
+        warn "บาง tools อาจยังไม่พร้อม — ตรวจสอบด้วย: docker logs zap-reporter-app-1"
+    fi
+}
+
+# ── แสดงผลสรุป ────────────────────────────────────────────────────────────────
+print_summary() {
     echo ""
     echo -e "${GREEN}──────────────────────────────────────────${NC}"
     echo -e "${GREEN}  ZAP Reporter พร้อมใช้งาน!${NC}"
@@ -269,3 +309,5 @@ setup_kernel
 open_firewall
 setup_env
 start_services
+verify_tools
+print_summary
