@@ -393,10 +393,14 @@
         deleteForm.submit();
     });
 
-    // Show loading on submit
+    // Show loading on submit, then reset after download starts
     document.getElementById('reportForm').addEventListener('submit', function() {
         generateBtn.disabled = true;
         generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
+        setTimeout(function() {
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-down"></i> Generate Report';
+        }, 15000);
     });
 })();
 </script>
