@@ -44,30 +44,38 @@
                    class="btn btn-sm btn-outline-info">
                     <i class="bi bi-file-earmark-text"></i> Generate Report
                 </a>
-                {% if organizations|length > 1 %}
                 <div class="btn-group">
                     <a href="{% url 'reports-pdf' scan.id %}" class="btn btn-sm btn-outline-danger">
-                        <i class="bi bi-file-pdf"></i> PDF
+                        <i class="bi bi-file-pdf"></i> PDF ฉบับเต็ม
                     </a>
                     <button type="button" class="btn btn-sm btn-outline-danger dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-                        <span class="visually-hidden">เลือกหน่วยงาน</span>
+                        <span class="visually-hidden">ตัวเลือก</span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
+                        <li><h6 class="dropdown-header">ประเภทรายงาน</h6></li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'reports-pdf' scan.id %}">
+                                <i class="bi bi-file-pdf text-danger me-1"></i> ฉบับเต็ม
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'reports-pdf' scan.id %}?report_type=short">
+                                <i class="bi bi-file-pdf text-warning me-1"></i> ฉบับย่อ (สำหรับส่งกระทรวง)
+                            </a>
+                        </li>
+                        {% if organizations|length > 1 %}
+                        <li><hr class="dropdown-divider"></li>
                         <li><h6 class="dropdown-header">เลือกหน่วยงาน</h6></li>
                         {% for org in organizations %}
                         <li>
-                            <a class="dropdown-item" href="{% url 'reports-pdf' scan.id %}?org_id={{ org.pk }}" target="_blank">
+                            <a class="dropdown-item" href="{% url 'reports-pdf' scan.id %}?org_id={{ org.pk }}">
                                 {% if org.is_default %}<i class="bi bi-star-fill text-warning me-1"></i>{% endif %}{{ org.name_th }}
                             </a>
                         </li>
                         {% endfor %}
+                        {% endif %}
                     </ul>
                 </div>
-                {% else %}
-                <a href="{% url 'reports-pdf' scan.id %}" class="btn btn-sm btn-outline-danger">
-                    <i class="bi bi-file-pdf"></i> PDF
-                </a>
-                {% endif %}
                 <a href="{% url 'reports-excel' scan.id %}" class="btn btn-sm btn-outline-success">
                     <i class="bi bi-file-earmark-excel"></i> Excel
                 </a>

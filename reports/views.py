@@ -9,6 +9,10 @@ from .excel_exporter import generate_excel
 def export_pdf(request, scan_id):
     scan = get_object_or_404(Scan.objects.select_related('target'), id=scan_id)
     org_id = request.GET.get('org_id')
+    report_type = request.GET.get('report_type', 'full')
+    if report_type == 'short':
+        from .pdf_generator import generate_combined_pdf
+        return generate_combined_pdf([str(scan_id)], org_id=org_id, report_type='short')
     return generate_pdf(scan, org_id=org_id)
 
 
