@@ -756,6 +756,9 @@ def settings_page(request):
                 for field in group['fields']:
                     key = field['key']
                     value = request.POST.get(key, '').strip()
+                    # Password fields: skip if empty (preserve existing value)
+                    if field.get('type') == 'password' and not value:
+                        continue
                     env_data[key] = value
                     # Also update os.environ so Django picks it up immediately
                     os.environ[key] = value
@@ -791,9 +794,18 @@ def settings_page(request):
     for group in SETTINGS_FIELDS:
         fields_with_values = []
         for field in group['fields']:
+            # Password fields: don't send actual value to template
+            if field.get('type') == 'password':
+                existing = env_data.get(field['key'], '')
+                display_value = '' if not existing else ''
+                has_value = bool(existing)
+            else:
+                display_value = env_data.get(field['key'], '')
+                has_value = False
             fields_with_values.append({
                 **field,
-                'value': env_data.get(field['key'], ''),
+                'value': display_value,
+                'has_value': has_value,
             })
         groups.append({
             'group': group['group'],
@@ -1002,6 +1014,27 @@ def _test_tool(tool, post_data):
             token = getattr(django_settings, 'WPSCAN_API_TOKEN', '')
             note = ' (API token configured)' if token else ' (no API token — vuln data limited)'
             return {'tool': 'WPScan (WordPress)', 'ok': ok, 'message': (ver + note) if ok else 'wpscan not found — install with: gem install wpscan'}
+
+        elif tool == 'openai':
+            api_key = post_data.get('OPENAI_API_KEY', '').strip()
+            if not api_key:
+                api_key = getattr(django_settings, 'OPENAI_API_KEY', '')
+            if not api_key:
+                api_key = os.environ.get('OPENAI_API_KEY', '')
+            if not api_key:
+                return {'tool': 'OpenAI', 'ok': False, 'message': 'ยังไม่ได้ตั้งค่า OPENAI_API_KEY'}
+            try:
+                import urllib.request, json as _json
+                req = urllib.request.Request(
+                    'https://api.openai.com/v1/models',
+                    headers={'Authorization': f'Bearer {api_key}'},
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = _json.loads(resp.read())
+                count = len(data.get('data', []))
+                return {'tool': 'OpenAI', 'ok': True, 'message': f'Connected — {count} models available'}
+            except Exception as e:
+                return {'tool': 'OpenAI', 'ok': False, 'message': str(e)}
 
         return {'tool': tool, 'ok': False, 'message': 'Unknown tool'}
 

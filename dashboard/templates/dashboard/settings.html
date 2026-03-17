@@ -53,12 +53,9 @@
                                class="form-control"
                                id="{{ field.key }}"
                                name="{{ field.key }}"
-                               value="{{ field.value }}"
-                               placeholder="{{ field.placeholder }}"
-                               autocomplete="off">
-                        <button class="btn btn-outline-secondary toggle-pw" type="button" data-target="{{ field.key }}">
-                            <i class="bi bi-eye"></i>
-                        </button>
+                               value=""
+                               placeholder="{% if field.has_value %}ตั้งค่าแล้ว — เว้นว่างไว้เพื่อคงค่าเดิม{% else %}{{ field.placeholder }}{% endif %}"
+                               autocomplete="new-password">
                         {% else %}
                         <input type="{{ field.type }}"
                                class="form-control"
