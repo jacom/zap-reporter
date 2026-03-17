@@ -128,13 +128,34 @@ def _generate_findings_distribution_chart(owasp_summary):
     return base64.b64encode(buf.read()).decode('utf-8')
 
 
-def _build_coverage_matrix(owasp_summary, scan_tools_set):
+def _build_tools_by_owasp(alerts_qs):
+    """Return dict {owasp_code: set_of_tool_names} from actual alert data."""
+    from scanner.owasp_mapping import CWE_TO_OWASP
+    result = {}
+    for alert in alerts_qs.exclude(tool='').values('owasp_category', 'cwe_id', 'tool'):
+        code = alert.get('owasp_category') or CWE_TO_OWASP.get(alert.get('cwe_id') or 0)
+        if not code:
+            continue
+        # normalise: 'A01:2025' → 'A01'
+        short = code.split(':')[0]
+        result.setdefault(short, set()).add(alert['tool'])
+    return result
+
+
+def _build_coverage_matrix(owasp_summary, scan_tools_set, tools_by_owasp=None):
     """Build OWASP Top 10:2025 coverage matrix list for template rendering."""
     matrix = []
     for code in sorted(OWASP_2025.keys()):
         info = OWASP_2025[code]
         data = owasp_summary.get(code, {})
+        # Tools that can cover this category (from OWASP mapping)
         covering_tools = [t for t in info['tools'] if t in scan_tools_set]
+        # Also add any tools that actually found findings in this category
+        if tools_by_owasp:
+            actual = tools_by_owasp.get(code, set())
+            for t in actual:
+                if t not in covering_tools:
+                    covering_tools.append(t)
         high_total = data.get('high', 0) + data.get('critical', 0)
         medium     = data.get('medium', 0)
         low        = data.get('low', 0)
@@ -592,7 +613,12 @@ def generate_combined_pdf(scan_ids, report_title='', org_id=None, report_type='f
     owasp_summary   = get_owasp_summary(all_alerts)
     dist_chart      = _generate_findings_distribution_chart(owasp_summary)
     scan_tools_set  = {s.tool for s in scans}
-    coverage_matrix = _build_coverage_matrix(owasp_summary, scan_tools_set)
+    tools_by_owasp  = _build_tools_by_owasp(all_alerts)
+    coverage_matrix = _build_coverage_matrix(owasp_summary, scan_tools_set, tools_by_owasp)
+
+    # Black Box / Gray Box — Gray Box ถ้ามี openvas, wazuh, trivy หรือ sonarqube
+    gray_box_tools = {'openvas', 'wazuh', 'trivy', 'sonarqube'}
+    test_type = 'Gray Box' if scan_tools_set & gray_box_tools else 'Black Box'
 
     # Per-scan findings summary table
     per_scan_summary = []
@@ -650,6 +676,7 @@ def generate_combined_pdf(scan_ids, report_title='', org_id=None, report_type='f
         'per_scan_summary': per_scan_summary,
         'coverage_matrix': coverage_matrix,
         'total_all': total_all,
+        'test_type': test_type,
         'org': org,
         'org_logo_b64': org_logo_b64,
         'doc_number': doc_number,
