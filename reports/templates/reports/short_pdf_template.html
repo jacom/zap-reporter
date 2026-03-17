@@ -184,12 +184,15 @@
     <div class="meta">
       <p><strong>เป้าหมาย:</strong> {{ target_label }}</p>
       {% if primary_target %}<p><strong>URL:</strong> {{ primary_target.url }}</p>{% endif %}
-      <p><strong>วันที่รายงาน:</strong> {% now "j" %} {% now "F" %} {% now "Y" %}</p>
+      <p><strong>วันที่รายงาน:</strong> {% now "j F Y" %}</p>
       {% if doc_number %}<p><strong>เลขที่เอกสาร:</strong> {{ doc_number }}</p>{% endif %}
       <p><strong>Tools ที่ใช้:</strong>
         {% for s in scans %}{{ s.get_tool_display }}{% if not forloop.last %}, {% endif %}{% endfor %}
       </p>
     </div>
+
+    <div style="margin-top:20px"></div>
+    <div style="margin-top:20px"></div>
 
     <div class="cover-confidential">
       <div class="conf-title">CONFIDENTIAL — ลับ</div>
@@ -203,15 +206,15 @@
     <div class="signers-row">
       <div class="signer-block">
         <div class="signer-line"></div>
-        <div>{% if org.pentest_lead %}{{ org.pentest_lead }}{% else %}..................................................{% endif %}</div>
+        <div><strong>{% if org.preparer_name %}{{ org.preparer_name }}{% else %}..................................................{% endif %}</strong></div>
         <div class="signer-label">ผู้ทำการทดสอบ (Penetration Tester)</div>
-        {% if org.pentest_lead_position %}<div class="signer-label">{{ org.pentest_lead_position }}</div>{% endif %}
+        {% if org.preparer_title %}<div class="signer-label">{{ org.preparer_title }}</div>{% endif %}
       </div>
       <div class="signer-block">
         <div class="signer-line"></div>
-        <div>{% if org.report_recipient %}{{ org.report_recipient }}{% else %}..................................................{% endif %}</div>
+        <div><strong>{% if org.approver_name %}{{ org.approver_name }}{% else %}..................................................{% endif %}</strong></div>
         <div class="signer-label">ผู้รับรายงาน</div>
-        {% if org.report_recipient_position %}<div class="signer-label">{{ org.report_recipient_position }}</div>{% endif %}
+        {% if org.approver_title %}<div class="signer-label">{{ org.approver_title }}</div>{% endif %}
       </div>
     </div>
   </div>
