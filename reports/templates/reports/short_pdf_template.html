@@ -48,32 +48,29 @@
         text-align: center;
         padding-top: 4px;
         page-break-after: always;
-        min-height: 270mm;
-        display: flex;
-        flex-direction: column;
+        page-break-inside: avoid;
     }
-    .cover-top { flex: 1; }
-    .cover-logo { max-height: 70px; margin-bottom: 8px; }
-    .cover-org-name { font-size: 13pt; font-weight: 600; color: #1a1a2e; margin-bottom: 4px; }
-    .cover h1 { font-size: 22pt; color: #16213e; margin-bottom: 4px; margin-top: 12px; }
-    .cover h2 { font-size: 14pt; color: #0f766e; margin-top: 0; margin-bottom: 8px; }
-    .cover .line { width: 200px; height: 3px; background: linear-gradient(90deg,#0d9488,#22d3ee); margin: 10px auto; }
+    .cover-logo { max-height: 60px; margin-bottom: 6px; }
+    .cover-org-name { font-size: 12pt; font-weight: 600; color: #1a1a2e; margin-bottom: 2px; }
+    .cover h1 { font-size: 20pt; color: #16213e; margin-bottom: 3px; margin-top: 10px; }
+    .cover h2 { font-size: 13pt; color: #0f766e; margin-top: 0; margin-bottom: 6px; }
+    .cover .line { width: 200px; height: 3px; background: linear-gradient(90deg,#0d9488,#22d3ee); margin: 8px auto; }
     .cover .badge-short {
         display: inline-block;
         background: #0d9488;
         color: #fff;
         border-radius: 20px;
-        padding: 3px 16px;
+        padding: 2px 14px;
         font-size: 9pt;
         font-weight: 600;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
     }
-    .cover .meta { margin-top: 10px; font-size: 10pt; color: #555; }
-    .cover .meta p { margin: 3px 0; }
+    .cover .meta { margin-top: 8px; font-size: 9.5pt; color: #555; }
+    .cover .meta p { margin: 2px 0; }
     .cover-confidential {
-        margin: 14px auto 0;
+        margin: 10px auto 0;
         max-width: 420px;
-        padding: 8px 14px;
+        padding: 6px 12px;
         border: 1px solid #c8a415;
         border-left: 4px solid #c8a415;
         border-radius: 4px;
@@ -82,18 +79,18 @@
         color: #5a4a00;
         text-align: left;
     }
-    .cover-confidential .conf-title { font-weight: 700; font-size: 9pt; color: #7a5c00; }
+    .cover-confidential .conf-title { font-weight: 700; font-size: 8.5pt; color: #7a5c00; }
 
     /* ── Signers block (bottom of cover) ── */
     .cover-signers {
-        margin-top: auto;
-        padding-top: 20px;
+        margin-top: 18mm;
+        page-break-inside: avoid;
         font-size: 10pt;
         color: #444;
     }
-    .signers-row { display: flex; justify-content: space-around; }
-    .signer-block { text-align: center; width: 45%; }
-    .signer-line { border-top: 1px solid #333; width: 180px; margin: 36px auto 4px; }
+    .signers-row { display: table; width: 100%; }
+    .signer-block { display: table-cell; text-align: center; width: 50%; }
+    .signer-line { border-top: 1px solid #333; width: 180px; margin: 28px auto 4px; }
     .signer-label { font-size: 9pt; color: #666; }
 
     /* ── Section titles ── */
@@ -283,14 +280,14 @@
 <table>
   <thead>
     <tr>
-      <th style="width:60px">รหัส</th>
-      <th>หมวดหมู่</th>
-      <th style="text-align:center;width:60px">High+</th>
-      <th style="text-align:center;width:55px">Medium</th>
-      <th style="text-align:center;width:45px">Low</th>
-      <th style="text-align:center;width:55px">รวม</th>
-      <th style="width:80px">สถานะ</th>
-      <th style="width:100px">Tools</th>
+      <th style="width:42px">รหัส</th>
+      <th style="width:38%">หมวดหมู่</th>
+      <th style="text-align:center;width:42px">High+</th>
+      <th style="text-align:center;width:46px">Medium</th>
+      <th style="text-align:center;width:36px">Low</th>
+      <th style="text-align:center;width:36px">รวม</th>
+      <th style="width:72px">สถานะ</th>
+      <th style="width:72px">Tools</th>
     </tr>
   </thead>
   <tbody>
@@ -298,8 +295,8 @@
     <tr>
       <td><strong>{{ row.code }}</strong></td>
       <td>
-        {{ row.name }}<br>
-        <small style="color:#666">{{ row.name_th }}</small>
+        <span style="font-size:8.5pt">{{ row.name }}</span><br>
+        <span style="font-size:7.5pt;color:#666">{{ row.name_th }}</span>
       </td>
       <td style="text-align:center">
         {% if row.high_total %}<span class="sev sev-high">{{ row.high_total }}</span>{% else %}—{% endif %}
@@ -311,16 +308,16 @@
         {% if row.low %}<span class="sev sev-low">{{ row.low }}</span>{% else %}—{% endif %}
       </td>
       <td style="text-align:center"><strong>{{ row.total }}</strong></td>
-      <td>
+      <td style="font-size:8pt">
         {% if row.status == 'found' %}
-          <span class="status-found">⚠ พบช่องโหว่</span>
+          <span class="status-found">⚠ พบ</span>
         {% elif row.status == 'clean' %}
           <span class="status-clean">✓ ผ่าน</span>
         {% else %}
-          <span class="status-not-tested">— ไม่ได้ทดสอบ</span>
+          <span class="status-not-tested">—</span>
         {% endif %}
       </td>
-      <td style="font-size:8pt;color:#555">{{ row.covering_tools|join:", " }}</td>
+      <td style="font-size:7.5pt;color:#555;word-break:break-word">{{ row.covering_tools|join:", " }}</td>
     </tr>
     {% endfor %}
   </tbody>
@@ -376,17 +373,16 @@
      ภาคผนวก — ประกาศนียบัตร
 ════════════════════════════════════════════════════════════════════ -->
 {% if certificates %}
-<div class="page-break"></div>
-<h2 class="section-title">ภาคผนวก — ประกาศนียบัตรผู้ทดสอบ</h2>
+<h2 class="section-title" style="page-break-before:always">ภาคผนวก — ประกาศนียบัตรผู้ทดสอบ</h2>
 {% for cert in certificates %}
   {% if cert.is_image and cert.data_uri %}
-  <div class="cert-page">
+  <div style="{% if not forloop.first %}page-break-before:always;{% endif %}text-align:center;margin-top:8px">
     <div class="cert-info">
       <strong>{{ cert.person_name }}</strong>
       {% if cert.course_name %} — {{ cert.course_name }}{% endif %}
       {% if cert.issuer %} ({{ cert.issuer }}){% endif %}
     </div>
-    <img src="{{ cert.data_uri }}" alt="Certificate {{ cert.person_name }}">
+    <img src="{{ cert.data_uri }}" alt="Certificate" style="max-width:95%;max-height:250mm">
   </div>
   {% endif %}
 {% endfor %}
