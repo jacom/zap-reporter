@@ -375,18 +375,22 @@
 ════════════════════════════════════════════════════════════════════ -->
 {% if certificates %}
 <h2 class="section-title" style="page-break-before:always">ภาคผนวก — ประกาศนียบัตรผู้ทดสอบ</h2>
-{% for cert in certificates %}
-  {% if cert.is_image and cert.data_uri %}
-  <div style="{% if not forloop.first %}page-break-before:always;{% endif %}text-align:center;margin-top:8px">
-    <div class="cert-info">
-      <strong>{{ cert.person_name }}</strong>
-      {% if cert.course_name %} — {{ cert.course_name }}{% endif %}
-      {% if cert.issuer %} ({{ cert.issuer }}){% endif %}
-    </div>
-    <img src="{{ cert.data_uri }}" alt="Certificate" style="max-width:95%;max-height:250mm">
-  </div>
-  {% endif %}
-{% endfor %}
+<table style="width:100%;border:none;margin:0">
+  {% for cert in certificates %}
+    {% if cert.is_image and cert.data_uri %}
+      {% if forloop.counter0|divisibleby:2 %}<tr>{% endif %}
+      <td style="width:50%;padding:6px;border:none;text-align:center;vertical-align:top">
+        <div style="font-size:8pt;color:#555;margin-bottom:3px">
+          <strong>{{ cert.person_name }}</strong>
+          {% if cert.course_name %}<br>{{ cert.course_name }}{% endif %}
+          {% if cert.issuer %}<br><span style="color:#888">{{ cert.issuer }}</span>{% endif %}
+        </div>
+        <img src="{{ cert.data_uri }}" alt="Certificate" style="max-width:100%;max-height:118mm;border:1px solid #ddd">
+      </td>
+      {% if forloop.counter|divisibleby:2 or forloop.last %}</tr>{% endif %}
+    {% endif %}
+  {% endfor %}
+</table>
 {% endif %}
 
 </body>
