@@ -11,6 +11,7 @@ urlpatterns = [
     path('trends/', views.trends, name='dashboard-trends'),
     path('trends/<uuid:pk>/delete/', views.trend_delete, name='dashboard-trend-delete'),
     path('settings/', views.settings_page, name='dashboard-settings'),
+    path('settings/download-wordlist/', views.download_wordlist, name='dashboard-download-wordlist'),
     path('organization/', views.organization_list, name='dashboard-organization'),
     path('organization/new/', views.organization_new, name='dashboard-organization-new'),
     path('organization/<int:pk>/edit/', views.organization_edit, name='dashboard-organization-edit'),

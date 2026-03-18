@@ -37,11 +37,24 @@
         <div class="card settings-card">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <span><i class="bi {{ group.icon }}"></i> {{ group.group }}</span>
-                <button type="button" class="btn btn-sm btn-outline-primary test-btn"
-                        data-tool="{{ group.tool_id }}"
-                        title="Test connection">
-                    <i class="bi bi-lightning"></i> Test
-                </button>
+                <div class="d-flex gap-2">
+                    {% if group.tool_id == 'dirb' %}
+                        {% if group.has_wordlist %}
+                        <span class="btn btn-sm btn-outline-success disabled">
+                            <i class="bi bi-check-circle"></i> Wordlist พร้อม
+                        </span>
+                        {% else %}
+                        <button type="button" class="btn btn-sm btn-warning" id="downloadWordlistBtn">
+                            <i class="bi bi-download"></i> Download Wordlist
+                        </button>
+                        {% endif %}
+                    {% endif %}
+                    <button type="button" class="btn btn-sm btn-outline-primary test-btn"
+                            data-tool="{{ group.tool_id }}"
+                            title="Test connection">
+                        <i class="bi bi-lightning"></i> Test
+                    </button>
+                </div>
             </div>
             <div class="card-body">
                 {% for field in group.fields %}
@@ -107,6 +120,35 @@
             document.getElementById('settingsForm').submit();
         });
     });
+
+    // Download Wordlist button
+    var dlBtn = document.getElementById('downloadWordlistBtn');
+    if (dlBtn) {
+        dlBtn.addEventListener('click', function() {
+            dlBtn.disabled = true;
+            dlBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> กำลังโหลด...';
+            fetch('{% url "dashboard-download-wordlist" %}', {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'},
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    dlBtn.className = 'btn btn-sm btn-outline-success disabled';
+                    dlBtn.innerHTML = '<i class="bi bi-check-circle"></i> Wordlist พร้อม';
+                } else {
+                    dlBtn.disabled = false;
+                    dlBtn.innerHTML = '<i class="bi bi-download"></i> Download Wordlist';
+                    alert('Download ไม่สำเร็จ — ตรวจสอบว่า container มีอินเทอร์เน็ต');
+                }
+            })
+            .catch(() => {
+                dlBtn.disabled = false;
+                dlBtn.innerHTML = '<i class="bi bi-download"></i> Download Wordlist';
+                alert('เกิดข้อผิดพลาด');
+            });
+        });
+    }
 })();
 </script>
 {% endblock %}

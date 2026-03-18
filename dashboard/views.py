@@ -807,17 +807,45 @@ def settings_page(request):
                 'value': display_value,
                 'has_value': has_value,
             })
+        extra = {}
+        if group['tool_id'] == 'dirb':
+            import scanner.dirb_client as _dirb
+            extra['has_wordlist'] = _dirb._find_wordlist() is not None
+            extra['wordlist_path'] = _dirb._find_wordlist() or ''
         groups.append({
             'group': group['group'],
             'tool_id': group['tool_id'],
             'icon': group['icon'],
             'fields': fields_with_values,
+            **extra,
         })
 
     return render(request, 'dashboard/settings.html', {
         'groups': groups,
         'test_result': test_result,
     })
+
+
+@login_required
+def download_wordlist(request):
+    """Download SecLists common.txt wordlist into /opt/SecLists/."""
+    import threading, urllib.request
+    WORDLIST_URL = 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/common.txt'
+    DEST = '/opt/SecLists/Discovery/Web-Content/common.txt'
+
+    def _do_download():
+        import pathlib
+        pathlib.Path(DEST).parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(WORDLIST_URL, DEST)
+
+    t = threading.Thread(target=_do_download, daemon=True)
+    t.start()
+    t.join(timeout=30)
+
+    import scanner.dirb_client as dirb_client
+    ok = dirb_client._find_wordlist() is not None
+    from django.http import JsonResponse
+    return JsonResponse({'ok': ok, 'path': DEST if ok else ''})
 
 
 # ── Pentest Agreement Views ────────────────────────────────────────────────
