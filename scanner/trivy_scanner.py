@@ -32,7 +32,16 @@ class TrivyClient:
             return False
 
     def get_version(self):
-        """Get Trivy version via CLI."""
+        """Get Trivy version via server API or CLI fallback."""
+        # Try server API first (Docker mode — trivy runs as a separate container)
+        try:
+            resp = requests.get(f'{self.server_url}/version', timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get('Version', str(data))
+        except Exception:
+            pass
+        # Fallback: CLI (non-Docker / local install)
         try:
             result = subprocess.run(
                 ['trivy', '--version'],
@@ -42,27 +51,35 @@ class TrivyClient:
                 if line.startswith('Version:'):
                     return line.split(':', 1)[1].strip()
             return result.stdout.strip().split('\n')[0]
+        except FileNotFoundError:
+            return f'server: {self.server_url}'
         except Exception as e:
             return f'error: {e}'
 
-    def scan_fs(self, path):
-        """Scan filesystem/source code for vulnerabilities.
+    def _trivy_cmd(self, subcommand, *args):
+        """Build trivy command, adding --server flag when running in server mode."""
+        cmd = ['trivy', subcommand,
+               '--format', 'json',
+               '--severity', 'CRITICAL,HIGH,MEDIUM,LOW',
+               '--cache-dir', '/var/cache/trivy',
+               '--quiet']
+        # Use remote server if configured (Docker mode)
+        if self.server_url and 'localhost' not in self.server_url and '127.0.0.1' not in self.server_url:
+            cmd += ['--server', self.server_url]
+        cmd += list(args)
+        return cmd
 
-        Returns list of normalized finding dicts.
-        """
+    def scan_fs(self, path):
+        """Scan filesystem/source code for vulnerabilities."""
         try:
             result = subprocess.run(
-                [
-                    'trivy', 'fs',
-                    '--format', 'json',
-                    '--severity', 'CRITICAL,HIGH,MEDIUM,LOW',
-                    '--cache-dir', '/var/cache/trivy',
-                    '--quiet',
-                    path,
-                ],
+                self._trivy_cmd('fs', path),
                 capture_output=True, text=True, timeout=600,
             )
             return self._parse_results(result.stdout)
+        except FileNotFoundError:
+            logger.error('trivy binary not found — install trivy or use Docker Compose mode')
+            return []
         except Exception as e:
             logger.exception(f'Trivy fs scan failed: {e}')
             return []
@@ -71,17 +88,13 @@ class TrivyClient:
         """Scan container image for vulnerabilities."""
         try:
             result = subprocess.run(
-                [
-                    'trivy', 'image',
-                    '--format', 'json',
-                    '--severity', 'CRITICAL,HIGH,MEDIUM,LOW',
-                    '--cache-dir', '/var/cache/trivy',
-                    '--quiet',
-                    image_name,
-                ],
+                self._trivy_cmd('image', image_name),
                 capture_output=True, text=True, timeout=600,
             )
             return self._parse_results(result.stdout)
+        except FileNotFoundError:
+            logger.error('trivy binary not found — install trivy or use Docker Compose mode')
+            return []
         except Exception as e:
             logger.exception(f'Trivy image scan failed: {e}')
             return []
@@ -90,17 +103,13 @@ class TrivyClient:
         """Scan git repository."""
         try:
             result = subprocess.run(
-                [
-                    'trivy', 'repo',
-                    '--format', 'json',
-                    '--severity', 'CRITICAL,HIGH,MEDIUM,LOW',
-                    '--cache-dir', '/var/cache/trivy',
-                    '--quiet',
-                    repo_url,
-                ],
+                self._trivy_cmd('repo', repo_url),
                 capture_output=True, text=True, timeout=600,
             )
             return self._parse_results(result.stdout)
+        except FileNotFoundError:
+            logger.error('trivy binary not found — install trivy or use Docker Compose mode')
+            return []
         except Exception as e:
             logger.exception(f'Trivy repo scan failed: {e}')
             return []
@@ -108,17 +117,16 @@ class TrivyClient:
     def scan_sbom(self, path):
         """Generate SBOM (CycloneDX format)."""
         try:
-            result = subprocess.run(
-                [
-                    'trivy', 'fs',
-                    '--format', 'cyclonedx',
-                    '--cache-dir', '/var/cache/trivy',
-                    '--quiet',
-                    path,
-                ],
-                capture_output=True, text=True, timeout=600,
-            )
+            cmd = ['trivy', 'fs', '--format', 'cyclonedx',
+                   '--cache-dir', '/var/cache/trivy', '--quiet']
+            if self.server_url and 'localhost' not in self.server_url and '127.0.0.1' not in self.server_url:
+                cmd += ['--server', self.server_url]
+            cmd.append(path)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
             return json.loads(result.stdout) if result.stdout else {}
+        except FileNotFoundError:
+            logger.error('trivy binary not found')
+            return {}
         except Exception as e:
             logger.exception(f'Trivy SBOM generation failed: {e}')
             return {}
